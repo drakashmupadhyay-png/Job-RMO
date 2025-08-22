@@ -60,12 +60,16 @@
             <div class="nav-links">
                 <a href="#dashboard" class="nav-link active"><i class="fa-solid fa-table-columns"></i> <span>Dashboard</span></a>
                 <a href="#experienceBook" class="nav-link"><i class="fa-solid fa-book-bookmark"></i> <span>Experience Book</span></a>
+                <a href="#documents" class="nav-link"><i class="fa-solid fa-folder-open"></i> <span>My Documents</span></a>
                 <a href="#settings" class="nav-link"><i class="fa-solid fa-gear"></i> <span>Settings</span></a>
             </div>
-            <div class="nav-user">
+            <div class="nav-user" id="nav-user-menu">
                 <img id="nav-user-img" src="placeholder.jpg" alt="User" class="nav-user-avatar">
-                <span>Welcome, <span id="nav-user-name"></span></span>
-                <button id="logout-btn" class="secondary-btn">Logout</button>
+                <span class="nav-welcome-text">Welcome, <span id="nav-user-name">User</span></span>
+                <div class="dropdown-menu hidden" id="user-dropdown">
+                    <a href="#settings" class="dropdown-item nav-link"><i class="fa-solid fa-user-pen"></i> Edit Profile</a>
+                    <a href="#" class="dropdown-item" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                </div>
             </div>
         </nav>
 
@@ -174,6 +178,25 @@
             </form>
         </main>
 
+        <!-- MY DOCUMENTS PAGE -->
+        <main id="documents" class="page-content hidden">
+            <header class="page-header-nav"><h2><i class="fa-solid fa-folder-open"></i> My Documents</h2></header>
+            <section class="detail-section">
+                <h3>Central Document Repository</h3>
+                <p class="text-light">Upload and manage your master documents like CVs, cover letters, and certifications here.</p>
+                <div class="documents-container">
+                    <div class="document-column">
+                        <h4>Master Document List</h4>
+                        <ul id="master-docs-list" class="file-list"></ul>
+                        <div id="add-master-doc-form" class="add-document-form">
+                            <input type="file" id="master-doc-file-input" class="hidden">
+                            <button type="button" id="master-doc-browse-btn" class="secondary-btn"><i class="fa-solid fa-upload"></i> Upload New Document</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
         <!-- SETTINGS PAGE -->
         <main id="settings" class="page-content hidden">
             <header class="page-header-nav"><h2><i class="fa-solid fa-gear"></i> Settings</h2></header>
@@ -190,21 +213,6 @@
                         <div class="form-group"><label for="profile-name">Full Name</label><input type="text" id="profile-name"></div>
                         <div class="form-group"><label for="profile-email">Email Address</label><input type="email" id="profile-email" disabled></div>
                         <button id="save-profile-btn" class="primary-action-btn">Save Profile Changes</button>
-                    </div>
-                </div>
-            </section>
-
-            <section class="detail-section">
-                <h3>My Documents (Central Repository)</h3>
-                <p class="text-light">Manage your master documents here. You can select from this list when tracking your applications.</p>
-                <div class="documents-container">
-                    <div class="document-column">
-                        <h4>Master Document List</h4>
-                        <ul id="master-docs-list" class="file-list"></ul>
-                        <div id="add-master-doc-form" class="add-document-form">
-                            <input type="file" id="master-doc-file-input" class="hidden">
-                            <button type="button" id="master-doc-browse-btn" class="secondary-btn"><i class="fa-solid fa-upload"></i> Upload New Document</button>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -229,7 +237,7 @@
             </section>
         </main>
         
-        <!-- APPLICATION DETAIL PAGE (NEW TABBED STRUCTURE) -->
+        <!-- APPLICATION DETAIL PAGE -->
         <main id="applicationDetailPage" class="page-content hidden">
             <header class="page-header-nav"><button id="back-to-dashboard-btn" class="secondary-btn"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</button></header>
             
@@ -248,7 +256,6 @@
 
             <form id="application-detail-form">
                 
-                <!-- TAB PANEL 1: JOB AD DETAILS -->
                 <div id="details-panel" class="tab-panel active">
                     <section class="detail-section">
                         <h3>Core Job Information & Logistics</h3>
@@ -287,7 +294,6 @@
                     </section>
                 </div>
 
-                <!-- TAB PANEL 2: MY TRACKER -->
                 <div id="tracker-panel" class="tab-panel">
                     <section class="detail-section"><h3>Your Application Progress</h3><div class="form-grid-3-col"><div><label for="detail-status">Overall Status</label><select id="detail-status"></select></div><div><label for="detail-date-applied">Date Applied / EOI Sent</label><input type="date" id="detail-date-applied"></div><div><label for="detail-follow-up-date">Follow-Up Date</label><input type="date" id="detail-follow-up-date"></div><div class="checkbox-group align-end"><input type="checkbox" id="detail-follow-up-complete"><label for="detail-follow-up-complete">Follow-Up Complete?</label></div></div></section>
                     <section class="detail-section"><h3>Selection Criteria Workbench</h3><p class="text-light" style="margin-bottom: 20px;">Craft your responses to the specific selection criteria for this job. Link responses from your Experience Book.</p><div id="selection-criteria-workbench" class="workbench-container"></div><div class="workbench-footer"><button type="button" id="add-criterion-btn" class="secondary-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button></div></section>
