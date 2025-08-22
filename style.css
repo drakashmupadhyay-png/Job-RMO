@@ -1,6 +1,6 @@
 /* ---
-   RMO Job-Flow - style.css (Blueprint-Aligned)
-   Description: Stylesheet updated to match the final blueprint specifications.
+   RMO Job-Flow - style.css (Blueprint-Aligned & Corrected)
+   Description: Stylesheet updated to match the final blueprint and corrected HTML structure.
 --- */
 
 /* --- 1. Root Variables & General Styles --- */
@@ -61,16 +61,23 @@ body {
 .nav-links a { color: var(--text-light); text-decoration: none; padding: 21px 20px; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
 .nav-links a:hover { color: var(--text-dark); }
 .nav-links a.active { color: var(--primary-blue); border-bottom-color: var(--primary-blue); }
-.nav-user { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
-.nav-user .secondary-btn { padding: 8px 15px; }
+
+.nav-user { display: flex; align-items: center; gap: 12px; flex-shrink: 0; position: relative; cursor: pointer; padding: 10px; border-radius: 8px; }
+.nav-user:hover { background-color: var(--background-light); }
+.nav-welcome-text { font-weight: 500; white-space: nowrap; }
 .nav-user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color); }
+.dropdown-menu { position: absolute; top: 105%; right: 0; background-color: var(--surface-white); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-medium); padding: 10px 0; min-width: 220px; z-index: 110; opacity: 1; transform: translateY(0); transition: opacity 0.2s ease, transform 0.2s ease; }
+.dropdown-menu.hidden { opacity: 0; transform: translateY(10px); pointer-events: none; }
+.dropdown-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: var(--text-dark); text-decoration: none; font-size: 0.95rem; }
+.dropdown-item:hover { background-color: var(--background-light); }
+
 
 .page-content { padding: 30px 40px; }
 
 /* --- 4. Dashboard, Filters & View Switcher --- */
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
 .header-actions { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
-.toggle-filters-btn { display: inline-flex; } /* Always visible */
+.toggle-filters-btn { display: inline-flex; }
 .toggle-filters-btn .fa-chevron-down { transition: transform 0.3s ease; }
 .toggle-filters-btn.open .fa-chevron-down { transform: rotate(180deg); }
 
@@ -131,20 +138,20 @@ button { cursor: pointer; transition: all 0.2s; border-radius: 5px; font-weight:
 .summary-details label { font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; }
 .summary-details span { font-size: 1.1rem; font-weight: 500; }
 
-#applicationDetailPage, #settings, #experienceBook, #experienceDetailPage { max-width: 1100px; margin: 0 auto; }
+#applicationDetailPage, #settings, #experienceBook, #experienceDetailPage, #documents { max-width: 1100px; margin: 0 auto; }
 .detail-section { background-color: var(--surface-white); padding: 30px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 30px; }
 .detail-section > h3 { font-size: 1.3rem; margin-bottom: 25px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
 .form-grid-3-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
 .form-grid-1-col { display: grid; grid-template-columns: 1fr; gap: 25px; }
 .form-grid-3-col .full-width { grid-column: 1 / -1; }
-.form-group { margin-bottom: 15px; } /* For settings page form groups */
+.form-group { margin-bottom: 15px; }
 .checkbox-group { display: flex; align-items: center; gap: 10px; }
 .checkbox-group.align-end { align-self: end; padding-bottom: 12px; }
 .checkbox-group input { width: auto; }
 .detail-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 20px 0; border-top: 1px solid var(--border-color); }
 .footer-actions-left, .footer-actions-right { display: flex; gap: 15px; }
 input, select, textarea { width: 100%; padding: 12px; }
-.editable-div { border: 1px solid var(--border-color); border-radius: 5px; padding: 12px; min-height: 48px; } /* For Experience Book */
+.editable-div { border: 1px solid var(--border-color); border-radius: 5px; padding: 12px; min-height: 48px; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); }
 label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem; }
 .input-error { color: var(--danger-red); font-size: 0.85rem; margin-top: 5px; }
@@ -191,7 +198,7 @@ label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;
 .card-content-wrapper { cursor: pointer; }
 
 .documents-container { display: grid; grid-template-columns: 1fr; gap: 30px; }
-#applicationDetailPage .documents-container { grid-template-columns: 1fr 1fr; } /* Specific override */
+#applicationDetailPage .documents-container { grid-template-columns: 1fr 1fr; }
 .document-column h4 { margin-bottom: 15px; }
 .add-document-form { display: flex; gap: 10px; margin-top: 15px; }
 .add-document-form input { flex-grow: 1; }
@@ -224,36 +231,11 @@ label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;
 .tab-panel.active { display: block; }
 
 /* --- 11. Dynamic Editable Fields --- */
-.editable-field {
-    min-height: 49px;
-    padding: 12px;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    transition: all 0.2s ease-in-out;
-    line-height: 1.6;
-    width: 100%;
-}
-.editable-field:hover {
-    background-color: #f1f3f5;
-    border-color: #f1f3f5;
-}
-.editable-field:focus {
-    background-color: var(--surface-white);
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-    outline: none;
-}
-.editable-field[placeholder]:empty:before {
-    content: attr(placeholder);
-    color: #a9a9a9;
-    pointer-events: none;
-    display: block;
-}
-#detail-source-url.editable-field {
-    white-space: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-}
+.editable-field { min-height: 49px; padding: 12px; border: 1px solid transparent; border-radius: 5px; transition: all 0.2s ease-in-out; line-height: 1.6; width: 100%; }
+.editable-field:hover { background-color: #f1f3f5; border-color: #f1f3f5; }
+.editable-field:focus { background-color: var(--surface-white); border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); outline: none; }
+.editable-field[placeholder]:empty:before { content: attr(placeholder); color: #a9a9a9; pointer-events: none; display: block; }
+#detail-source-url.editable-field { white-space: nowrap; overflow-x: auto; overflow-y: hidden; }
 
 /* --- 12. Footer & Selection Action Bar --- */
 #app-footer { position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--text-dark); color: #ecf0f1; z-index: 101; border-top: 1px solid #4a6179; }
@@ -307,7 +289,7 @@ label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;
 
 @media (max-width: 768px) {
     .main-nav { padding: 15px 20px; }
-    .nav-user span { display: none; }
+    .nav-welcome-text { display: none; }
     .nav-links a span { display: none; }
     .nav-links a { font-size: 1.2rem; padding: 21px 15px; }
     .page-content { padding: 20px; }
