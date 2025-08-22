@@ -84,14 +84,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const signupNameInput = document.getElementById('signup-name'), signupEmailInput = document.getElementById('signup-email'), signupPassInput = document.getElementById('signup-pass');
     const showSignupLink = document.getElementById('show-signup-link'), showLoginLink = document.getElementById('show-login-link');
     const loginError = document.getElementById('login-error'), signupError = document.getElementById('signup-error');
-    const logoutBtn = document.getElementById('logout-btn');
-    const navUserName = document.getElementById('nav-user-name'), navUserImg = document.getElementById('nav-user-img');
-
+    
     // Navigation & Pages
     const mainNavLinks = document.querySelector('.nav-links');
+    const navUserMenu = document.getElementById('nav-user-menu');
+    const userDropdown = document.getElementById('user-dropdown');
+    const navUserName = document.getElementById('nav-user-name'), navUserImg = document.getElementById('nav-user-img');
     const mainAppPages = { 
         dashboard: document.getElementById('dashboard'), 
         experienceBook: document.getElementById('experienceBook'),
+        documents: document.getElementById('documents'),
         experienceDetailPage: document.getElementById('experienceDetailPage'),
         settings: document.getElementById('settings'), 
         applicationDetailPage: document.getElementById('applicationDetailPage') 
@@ -145,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteExpBtn = document.getElementById('delete-exp-btn');
     const copyExpBtn = document.getElementById('copy-exp-btn');
 
-    // Settings Page
+    // Settings & Documents Page
     const profileNameInput = document.getElementById('profile-name'), profileEmailInput = document.getElementById('profile-email');
     const profileImagePreview = document.getElementById('profile-image-preview'), profileImageUpload = document.getElementById('profile-image-upload'), profileImageUploadBtn = document.getElementById('profile-image-upload-btn');
     const saveProfileBtn = document.getElementById('save-profile-btn');
@@ -167,19 +169,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. AUTHENTICATION & APP LIFECYCLE ---
     
-    // ** CORRECTED ** Attach auth listeners immediately on page load
+    // Attach auth listeners immediately on page load
     loginForm.addEventListener('submit', handleLogin);
     signupForm.addEventListener('submit', handleSignup);
-    showSignupLink.addEventListener('click', (e) => { 
-        e.preventDefault(); 
-        loginForm.classList.add('hidden'); 
-        signupForm.classList.remove('hidden'); 
-    });
-    showLoginLink.addEventListener('click', (e) => { 
-        e.preventDefault(); 
-        signupForm.classList.add('hidden'); 
-        loginForm.classList.remove('hidden'); 
-    });
+    showSignupLink.addEventListener('click', (e) => { e.preventDefault(); loginForm.classList.add('hidden'); signupForm.classList.remove('hidden'); });
+    showLoginLink.addEventListener('click', (e) => { e.preventDefault(); signupForm.classList.add('hidden'); loginForm.classList.remove('hidden'); });
 
     onAuthStateChanged(auth, user => {
         if (user) {
@@ -250,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const documentsRef = collection(db, `users/${userId}/documents`);
         documentsUnsubscribe = onSnapshot(query(documentsRef, orderBy("uploadedAt", "desc")), (snapshot) => {
             localDocumentsCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            if (!mainAppPages.settings.classList.contains('hidden')) {
+            if (!mainAppPages.documents.classList.contains('hidden')) {
                 renderMasterDocuments();
             }
         });
@@ -498,8 +492,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 4. EVENT LISTENERS SETUP ---
     
     function attachMainAppEventListeners() {
-        // NAVIGATION
+        // NAVIGATION & USER MENU
         mainNavLinks.addEventListener('click', handleNavigation);
+        navUserMenu.addEventListener('click', (e) => { e.stopPropagation(); userDropdown.classList.toggle('hidden'); });
+        window.addEventListener('click', () => { if (!userDropdown.classList.contains('hidden')) { userDropdown.classList.add('hidden'); } });
+        document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+        
+        // PAGE NAVIGATION
         backToDashboardBtn.addEventListener('click', () => navigateToPage('dashboard'));
         backToExpBookBtn.addEventListener('click', () => navigateToPage('experienceBook'));
         
@@ -536,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteExpBtn.addEventListener('click', handleDeleteExperience);
         copyExpBtn.addEventListener('click', handleCopyExperience);
 
-        // SETTINGS
+        // SETTINGS & DOCUMENTS
         saveProfileBtn.addEventListener('click', handleSaveProfile);
         profileImageUploadBtn.addEventListener('click', () => profileImageUpload.click());
         profileImageUpload.addEventListener('change', handleProfileImageUpload);
@@ -617,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleBulkAdd(e) { const file = e.target.files[0]; if(!file || !currentUser) return; const reader = new FileReader(); reader.onload = async (event) => { try { const newJobs = JSON.parse(event.target.result); if(!Array.isArray(newJobs)) throw new Error(); const batch = writeBatch(db); newJobs.forEach(job => { job.createdAt = Timestamp.now(); batch.set(doc(collection(db, `users/${currentUser.uid}/jobs`)), job); }); await batch.commit(); showToast(`${newJobs.length} jobs added successfully.`); } catch(err) { showToast("Bulk add failed. Invalid JSON.", "error"); } }; reader.readAsText(file); e.target.value = ''; }
 
     // --- 6. HELPER FUNCTIONS ---
-    function navigateToPage(pageKey) { if (isSelectMode) exitSelectMode(); Object.values(mainAppPages).forEach(p => p.classList.add('hidden')); if(mainAppPages[pageKey]) mainAppPages[pageKey].classList.remove('hidden'); mainNavLinks.querySelectorAll('a').forEach(l => l.classList.toggle('active', l.getAttribute('href') === `#${pageKey}`)); if (pageKey === 'experienceBook') renderExperienceBook(); if (pageKey === 'settings') renderMasterDocuments(); }
+    function navigateToPage(pageKey) { if (isSelectMode) exitSelectMode(); Object.values(mainAppPages).forEach(p => p.classList.add('hidden')); if(mainAppPages[pageKey]) mainAppPages[pageKey].classList.remove('hidden'); mainNavLinks.querySelectorAll('a').forEach(l => l.classList.toggle('active', l.getAttribute('href') === `#${pageKey}`)); if (pageKey === 'experienceBook') renderExperienceBook(); if (pageKey === 'documents') renderMasterDocuments(); if (!userDropdown.classList.contains('hidden')) userDropdown.classList.add('hidden'); }
     function updateClock() { try { const now = new Date(); const timeString = now.toLocaleTimeString('en-US', { timeZone: timeZoneSelector.value, hour: '2-digit', minute: '2-digit', hour12: true }); const dateString = now.toLocaleDateString('en-GB', { timeZone: timeZoneSelector.value, weekday: 'short', day: 'numeric', month: 'short' }); currentTimeDisplay.textContent = `${dateString}, ${timeString}`; } catch (e) { currentTimeDisplay.textContent = "Invalid Timezone"; } }
     const timezoneMap = { 'Australia/Sydney': 'AEST/AEDT', 'Australia/Perth': 'AWST', 'Australia/Adelaide': 'ACST/ACDT', 'Australia/Brisbane': 'AEST', 'Australia/Darwin': 'ACST', 'Asia/Kolkata': 'IST' };
     function formatDateTimeWithOriginalTZ(date, originalTimezone) { if (!date || !originalTimezone) return 'N/A'; try { const tzAbbreviation = timezoneMap[originalTimezone] || originalTimezone; const datePart = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: originalTimezone }).format(date); const timePart = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true, timeZone: originalTimezone }).format(date); return `${datePart} at ${timePart} ${tzAbbreviation}`; } catch (e) { return 'Invalid Date'; } }
