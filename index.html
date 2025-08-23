@@ -19,13 +19,9 @@
                     <h1>RMO Job-Flow</h1>
                     <p class="login-subtitle">Please sign in to continue.</p>
                 </div>
-                <div class="form-group"><label for="login-email">Email / Login ID</label><input type="email" id="login-email" required></div>
+                <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" required></div>
                 <div class="form-group"><label for="login-pass">Password</label><input type="password" id="login-pass" required></div>
                 <button type="submit" class="primary-action-btn" style="width: 100%;">Login</button>
-                <div class="separator">OR</div>
-                <button type="button" id="google-login-btn" class="secondary-btn google-btn" style="width: 100%;">
-                    <img src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google logo"> Sign in with Google
-                </button>
                 <p id="login-error" class="hidden" style="color: var(--danger-red); margin-top: 15px;">Invalid credentials.</p>
                 <p class="auth-switch-text">Don't have an account? <a href="#" id="show-signup-link">Sign Up</a></p>
             </form>
@@ -36,10 +32,10 @@
                     <h1>Create Account</h1>
                     <p class="login-subtitle">Get started with RMO Job-Flow.</p>
                 </div>
-                <div class="form-group"><label for="signup-fname">First Name</label><input type="text" id="signup-fname" required></div>
-                <div class="form-group"><label for="signup-lname">Last Name</label><input type="text" id="signup-lname" required></div>
+                <div class="form-group"><label for="signup-name">Full Name</label><input type="text" id="signup-name" required></div>
                 <div class="form-group"><label for="signup-email">Email</label><input type="email" id="signup-email" required></div>
-                <div class="form-group"><label for="signup-pass">Password</label><input type="password" id="signup-pass" required></div>
+                <div class="form-group"><label for="signup-pass">Set Password</label><input type="password" id="signup-pass" required></div>
+                <div class="form-group"><label for="signup-cpass">Confirm Password</label><input type="password" id="signup-cpass" required></div>
                 <button type="submit" class="primary-action-btn" style="width: 100%;">Sign Up</button>
                 <p id="signup-error" class="hidden" style="color: var(--danger-red); margin-top: 15px;">Could not create account.</p>
                 <p class="auth-switch-text">Already have an account? <a href="#" id="show-login-link">Log In</a></p>
@@ -238,8 +234,7 @@
                         <button type="button" id="profile-image-upload-btn" class="secondary-btn">Upload Image</button>
                     </div>
                     <div class="profile-details-section">
-                        <div class="form-group"><label for="profile-fname">First Name</label><input type="text" id="profile-fname"></div>
-                        <div class="form-group"><label for="profile-lname">Last Name</label><input type="text" id="profile-lname"></div>
+                        <div class="form-group"><label for="profile-name">Full Name</label><input type="text" id="profile-name"></div>
                         <div class="form-group"><label for="profile-email">Email Address</label><input type="email" id="profile-email" disabled></div>
                         <button id="save-profile-btn" class="primary-action-btn">Save Name</button>
                     </div>
