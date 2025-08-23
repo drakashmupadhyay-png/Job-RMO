@@ -6,7 +6,8 @@ import { db, storage } from './firebase-config.js';
 // Import specific functions we need from the Firebase SDK
 import { 
     updateProfile,
-    updatePassword
+    updatePassword,
+    deleteUser
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { 
     doc, 
@@ -15,13 +16,15 @@ import {
     updateDoc, 
     collection,
     writeBatch,
-    Timestamp
+    Timestamp,
+    getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { 
     ref, 
     uploadBytesResumable, 
     getDownloadURL, 
-    deleteObject 
+    deleteObject,
+    listAll
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 // --- 1. JOB APPLICATION API ---
@@ -129,10 +132,8 @@ export async function updateUserProfileName(user, fullName) {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    // Update the profile in Firebase Authentication (for display name)
     await updateProfile(user, { displayName: fullName });
     
-    // Update the profile in Firestore document (for structured data)
     const userDocRef = doc(db, "users", user.uid);
     await updateDoc(userDocRef, { 
         fullName: fullName,
@@ -175,7 +176,6 @@ export function uploadProfileImage(user, file, onProgress) {
             }, 
             async () => {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                // Update Auth and Firestore with the new URL
                 await updateProfile(user, { photoURL: downloadURL });
                 const userDocRef = doc(db, "users", user.uid);
                 await updateDoc(userDocRef, { photoURL: downloadURL });
@@ -209,9 +209,9 @@ export function uploadMasterDocument(userId, file) {
                 const docData = {
                     name: file.name,
                     url: downloadURL,
+                    size: file.size,
                     uploadedAt: Timestamp.now()
                 };
-                // Add document metadata to Firestore
                 await addDoc(collection(db, `users/${userId}/documents`), docData);
                 resolve();
             }
@@ -229,11 +229,48 @@ export async function deleteMasterDocument(userId, docToDelete) {
     if (!docToDelete || !docToDelete.url || !docToDelete.id) {
         throw new Error("Invalid document data provided for deletion.");
     }
-    // Create a reference from the full download URL
     const fileRef = ref(storage, docToDelete.url);
-    // Delete the file from Cloud Storage
     await deleteObject(fileRef);
-
-    // Delete the metadata record from Firestore
     await deleteDoc(doc(db, `users/${userId}/documents`, docToDelete.id));
+}
+
+
+// --- 5. DANGER ZONE API ---
+
+/**
+ * Deletes all of a user's data (Firestore subcollections, Storage files) and then their Auth account.
+ * @param {object} user - The current Firebase Auth user object.
+ * @returns {Promise<void>}
+ */
+export async function deleteUserAccount(user) {
+    const userId = user.uid;
+
+    // Batch delete all subcollections in Firestore
+    const batch = writeBatch(db);
+    const jobsRef = collection(db, `users/${userId}/jobs`);
+    const experiencesRef = collection(db, `users/${userId}/experiences`);
+    const documentsRef = collection(db, `users/${userId}/documents`);
+
+    const jobsSnapshot = await getDocs(jobsRef);
+    jobsSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    const experiencesSnapshot = await getDocs(experiencesRef);
+    experiencesSnapshot.forEach(doc => batch.delete(doc.ref));
+
+    const documentsSnapshot = await getDocs(documentsRef);
+    documentsSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete the main user document
+    batch.delete(doc(db, "users", userId));
+    
+    await batch.commit();
+
+    // Delete all files in user's Storage folder
+    const userStorageRef = ref(storage, `users/${userId}/`);
+    const allFiles = await listAll(userStorageRef);
+    const deletePromises = allFiles.items.map(itemRef => deleteObject(itemRef));
+    await Promise.all(deletePromises);
+
+    // Finally, delete the user from Firebase Authentication
+    await deleteUser(user);
 }
