@@ -55,9 +55,6 @@ body {
 .auth-switch-text a { color: var(--primary-blue); text-decoration: none; font-weight: 500; }
 .auth-switch-text a:hover { text-decoration: underline; }
 .separator { font-size: 0.9rem; color: var(--text-light); margin: 20px 0; }
-.google-btn { background-color: var(--surface-white); color: var(--text-dark); border-color: var(--border-color); }
-.google-btn:hover { background-color: var(--background-light); }
-.google-btn img { height: 20px; width: auto; }
 
 /* --- 3. Main Layout & Navigation --- */
 .main-nav { background-color: var(--surface-white); padding: 0 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); height: 65px; position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; }
@@ -76,6 +73,7 @@ body {
 .dropdown-menu.hidden { opacity: 0; transform: translateY(10px); pointer-events: none; }
 .dropdown-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: var(--text-dark); text-decoration: none; font-size: 0.95rem; }
 .dropdown-item:hover { background-color: var(--background-light); }
+
 
 .page-content { padding: 30px 40px; }
 
@@ -155,7 +153,7 @@ button { cursor: pointer; transition: all 0.2s; border-radius: 5px; font-weight:
 .status-applied { background-color: var(--applied-blue); color: white; }
 .status-interview-offered { background-color: var(--info-purple); color: white; }
 .status-offer-received { background-color: var(--success-green); color: white; }
-.status-unsuccessful { background-color: var(--unsuccessful-gray); color: white; }
+.status-unsuccessful, .status-closed, .status-offerdeclined { background-color: var(--unsuccessful-gray); color: white; }
 
 /* --- 7. Application, Experience Book & Settings Pages --- */
 .page-header-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
