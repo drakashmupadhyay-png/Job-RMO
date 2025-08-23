@@ -105,8 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: Timestamp.now()
             });
 
-            await signOut(auth); // Sign out immediately after signup
-
             // Redirect to login on successful signup
             signupForm.reset();
             signupForm.classList.add('hidden');
@@ -129,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loginForm.classList.add('hidden'); 
         signupForm.classList.remove('hidden'); 
         loginError.classList.add('hidden');
+        loginError.style.color = 'var(--danger-red)'; // Reset color
     });
     showLoginLink.addEventListener('click', (e) => { 
         e.preventDefault(); 
