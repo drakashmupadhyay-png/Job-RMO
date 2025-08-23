@@ -1,6 +1,6 @@
 /* ---
-   RMO Job-Flow - style.css (Blueprint-Aligned & Corrected)
-   Description: Final stylesheet with responsive navigation, fixed header/footer, and UI dropdowns.
+   RMO Job-Flow - style.css (Final Blueprint Version)
+   Description: Final stylesheet with responsive navigation, fixed header/footer, UI dropdowns, and mobile card view.
 --- */
 
 /* --- 1. Root Variables & General Styles --- */
@@ -79,11 +79,20 @@ body {
 /* --- 4. Dashboard, Filters & View Switcher --- */
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
 .header-actions { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+
+.dashboard-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+.metric-card { background-color: var(--surface-white); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; }
+.metric-card i { font-size: 1.8rem; color: var(--primary-blue); margin-bottom: 10px; }
+.metric-card .metric-value { font-size: 2.2rem; font-weight: 600; line-height: 1.2; }
+.metric-card .metric-label { font-size: 0.9rem; color: var(--text-light); }
+
+.dashboard-controls { display: flex; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+
 .toggle-filters-btn { display: inline-flex; }
 .toggle-filters-btn .fa-chevron-down { transition: transform 0.3s ease; }
 .toggle-filters-btn.open .fa-chevron-down { transform: rotate(180deg); }
 
-.view-switcher { display: flex; background-color: #e9ecef; border-radius: 5px; padding: 4px; }
+.view-switcher { display: flex; background-color: #e9ecef; border-radius: 5px; padding: 4px; margin-left: auto; }
 .view-btn { background: none; border: none; padding: 8px 15px; font-weight: 500; }
 .view-btn.active { background-color: var(--surface-white); color: var(--primary-blue); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
@@ -93,7 +102,7 @@ body {
 .filter-group.search-group { grid-column: 1 / -1; }
 #clear-filters-btn { align-self: end; }
 
-/* --- 5. Table & Calendar Styles --- */
+/* --- 5. Table & Card Views --- */
 .table-container { overflow-x: auto; background-color: var(--surface-white); border-radius: 8px; box-shadow: var(--shadow-soft); }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 15px 20px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; vertical-align: middle; }
@@ -102,6 +111,20 @@ tbody tr { cursor: pointer; transition: background-color: 0.2s; }
 tbody tr:hover { background-color: #f1f3f5; }
 .selected-row { background-color: var(--info-purple-light) !important; font-weight: 500; }
 .status-row-highlight { background-color: var(--info-purple-light) !important; font-weight: 500; }
+td .action-btn { background: none; border: none; padding: 5px 8px; color: var(--text-light); font-size: 1.1rem; }
+td .action-btn:hover { color: var(--primary-blue); }
+
+#card-view-container { display: none; /* Hidden by default, shown via media query */ }
+.job-card { background-color: var(--surface-white); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow-soft); cursor: pointer; position: relative; }
+.job-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+.job-card-title h3 { font-size: 1.2rem; margin: 0; }
+.job-card-title p { color: var(--text-light); }
+.job-card-status .tag { font-size: 0.9rem; }
+.job-card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.job-card-details-item { font-size: 0.95rem; }
+.job-card-details-item label { display: block; font-size: 0.8rem; color: var(--text-light); margin-bottom: 2px; }
+.job-card-details-item span { font-weight: 500; }
+.job-card-actions { position: absolute; top: 15px; right: 15px; }
 
 .date-overdue { color: var(--danger-red); font-weight: 700; }
 .date-completed { color: var(--success-green); }
@@ -142,7 +165,7 @@ button { cursor: pointer; transition: all 0.2s; border-radius: 5px; font-weight:
 
 #applicationDetailPage, #settings, #experienceBook, #experienceDetailPage, #documents { max-width: 1100px; margin: 0 auto; }
 .detail-section { background-color: var(--surface-white); padding: 30px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 30px; }
-.detail-section > h3 { font-size: 1.3rem; margin-bottom: 25px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+.detail-section > h3, .detail-section > h4 { font-size: 1.3rem; margin-bottom: 25px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
 .form-grid-3-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; }
 .form-grid-1-col { display: grid; grid-template-columns: 1fr; gap: 25px; }
 .form-grid-3-col .full-width { grid-column: 1 / -1; }
@@ -176,29 +199,23 @@ label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;
 .input-with-action .editable-field { padding-right: 45px; }
 .input-with-action .input-action-btn { position: absolute; right: 12px; bottom: 12px; text-decoration: none; color: var(--text-light); font-size: 1.1rem; transition: color 0.2s; }
 .input-with-action .input-action-btn:hover { color: var(--primary-blue); }
-
 .experience-filters { display: flex; align-items: flex-end; gap: 20px; padding: 20px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 30px; flex-wrap: wrap; background-color: var(--surface-white); }
 .experience-filters .search-container { flex-grow: 1; min-width: 250px; }
 .experience-filters .tag-filter-bar { padding-top: 0; }
 .tag-filter-bar { display: flex; flex-wrap: wrap; gap: 10px; }
 .tag-filter-btn { padding: 8px 15px; font-size: 0.9rem; }
 .tag-filter-btn.active { background-color: var(--primary-blue); color: white; border-color: var(--primary-blue); }
-
 .experience-cards-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; }
 .experience-card { position: relative; background-color: var(--surface-white); border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; box-shadow: var(--shadow-soft); transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
 .experience-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-medium); }
 .experience-card.is-favorite { border-left: 4px solid var(--warning-orange); }
-.experience-card h4 {
-    margin-bottom: 10px; font-size: 1.1rem; padding-right: 30px; font-weight: 600;
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
+.experience-card h4 { margin-bottom: 10px; font-size: 1.1rem; padding-right: 30px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .experience-card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
 .experience-card-paragraph { color: var(--text-light); font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .favorite-toggle { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.4rem; padding: 5px; color: var(--border-color); z-index: 2; cursor: pointer; }
 .favorite-toggle:hover { color: var(--warning-orange); transform: scale(1.2); }
 .favorite-toggle .favorited { color: var(--warning-orange); }
 .card-content-wrapper { cursor: pointer; }
-
 .documents-container { display: grid; grid-template-columns: 1fr; gap: 30px; }
 #applicationDetailPage .documents-container { grid-template-columns: 1fr 1fr; }
 .document-column h4 { margin-bottom: 15px; }
@@ -212,7 +229,6 @@ label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;
 .remove-doc-btn { background: none; color: var(--text-light); font-size: 1.2rem; padding: 0 5px; opacity: 0; transition: opacity 0.2s; border: none; }
 .file-list li:hover .remove-doc-btn { opacity: 1; }
 .remove-doc-btn:hover { color: var(--danger-red); }
-
 .workbench-item { margin-bottom: 25px; padding-bottom: 25px; border-bottom: 1px dashed var(--border-color); }
 .workbench-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
 .workbench-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; margin-bottom: 8px; }
@@ -285,8 +301,8 @@ label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;
 /* --- 16. Utility & Responsive Design --- */
 .hidden { display: none !important; }
 
-@media (max-width: 1200px) {
-    .filter-controls { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+@media (max-width: 992px) {
+    .dashboard-metrics { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
@@ -298,8 +314,12 @@ label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem;
     .nav-logo h1 { display: none; }
 
     .page-content { padding: 20px; }
-    .header-actions { flex-direction: row; justify-content: flex-start; }
     .dashboard-header, .page-header-nav { flex-direction: column; align-items: stretch; }
+    
+    .dashboard-metrics { grid-template-columns: 1fr; }
+    #table-view-container { display: none; } /* Hide table on mobile */
+    #card-view-container { display: block; } /* Show cards on mobile */
+
     .form-grid-3-col, #applicationDetailPage .documents-container, .experience-cards-container, .filter-controls, .profile-layout { grid-template-columns: 1fr; flex-direction: column; }
     .experience-filters { flex-direction: column; align-items: stretch; }
     .detail-footer { flex-direction: column-reverse; gap: 15px; align-items: stretch;}
