@@ -3,7 +3,7 @@
 // --- 0. IMPORTS ---
 import { auth, db } from './firebase-config.js';
 import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { collection, doc, onSnapshot, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import * as api from './api.js';
 import * as ui from './ui.js';
 
@@ -85,7 +85,8 @@ export function initializeMainApp(user) {
         profileImageUpload: document.getElementById('profile-image-upload'),
         masterDocBrowseBtn: document.getElementById('master-doc-browse-btn'),
         masterDocFileInput: document.getElementById('master-doc-file-input'),
-        masterDocsList: document.getElementById('master-docs-list'),
+        masterDocsList: document.getElementById('master-docs-tbody'),
+        deleteAccountBtn: document.getElementById('delete-account-btn'),
         deleteModalConfirmBtn: document.getElementById('delete-modal-confirm-btn'),
         deleteModalCloseBtn: document.getElementById('delete-modal-close-btn'),
         deleteModalCancelBtn: document.getElementById('delete-modal-cancel-btn'),
@@ -218,6 +219,7 @@ function attachMainAppEventListeners(selectors) {
     selectors.masterDocBrowseBtn.addEventListener('click', () => selectors.masterDocFileInput.click());
     selectors.masterDocFileInput.addEventListener('change', handleMasterDocumentUpload);
     selectors.masterDocsList.addEventListener('click', handleDeleteMasterDoc);
+    selectors.deleteAccountBtn.addEventListener('click', handleDeleteAccount);
 
     selectors.deleteModalCloseBtn.addEventListener('click', ui.hideDeleteModal);
     selectors.deleteModalCancelBtn.addEventListener('click', ui.hideDeleteModal);
@@ -260,11 +262,7 @@ function handleJobsTableClick(e) {
         }
     } else if (target.classList.contains('view-btn') || target.classList.contains('job-card')) {
         handleViewJob(jobId);
-    } else if (target.classList.contains('duplicate-btn')) {
-        handleDuplicateApplication(jobId);
-    } else if (target.classList.contains('delete-btn')) {
-        handleDeleteApplication(jobId);
-    }
+    } 
 }
 
 function handleViewJob(jobId) {
@@ -312,21 +310,21 @@ async function handleSaveApplication(e) {
     }
 }
 
-async function handleDeleteApplication(jobId) {
-    const idToDelete = jobId || currentJobId;
+async function handleDeleteApplication() {
+    const idToDelete = currentJobId;
     if (idToDelete && confirm("Are you sure you want to permanently delete this application?")) {
         try {
             await api.deleteJob(currentUser.uid, idToDelete);
             ui.showToast("Application deleted", "error");
-            if (idToDelete === currentJobId) ui.navigateToPage('dashboard');
+            ui.navigateToPage('dashboard');
         } catch (error) {
             ui.showToast("Deletion failed", "error");
         }
     }
 }
 
-function handleDuplicateApplication(jobId) {
-    const idToDup = jobId || currentJobId;
+function handleDuplicateApplication() {
+    const idToDup = currentJobId;
     const originalJob = localJobsCache.find(j => j.id === idToDup);
     if (!originalJob) return;
     const newJob = JSON.parse(JSON.stringify(originalJob));
@@ -408,8 +406,9 @@ function handleCopyExperience() {
 
 async function handleSaveProfile() {
     if (!currentUser) return;
+    const fullName = document.getElementById('profile-name').value;
     try {
-        await api.updateUserProfileName(currentUser, document.getElementById('profile-name').value);
+        await api.updateUserProfileName(currentUser, fullName);
         ui.showToast("Name updated!");
     } catch (error) {
         ui.showToast("Name update failed", "error");
@@ -418,12 +417,15 @@ async function handleSaveProfile() {
 
 async function handleUpdatePassword() {
     if (!currentUser) return;
-    const newPass = newPasswordInput.value;
+    const newPass = document.getElementById('profile-new-password').value;
+    const confirmPass = document.getElementById('profile-confirm-password').value;
+    if (newPass !== confirmPass) return ui.showToast("Passwords do not match.", "error");
     if (newPass.length < 6) return ui.showToast("Password must be at least 6 characters.", "error");
     try {
         await api.updateUserPassword(currentUser, newPass);
         ui.showToast("Password updated successfully!");
-        newPasswordInput.value = '';
+        document.getElementById('profile-new-password').value = '';
+        document.getElementById('profile-confirm-password').value = '';
     } catch (error) {
         ui.showToast("Update failed. Re-login may be required.", "error");
     }
@@ -431,17 +433,14 @@ async function handleUpdatePassword() {
 
 async function handleProfileImageUpload(e) {
     const file = e.target.files[0];
-    if (!file || !currentUser) {
-        ui.showToast("You must be logged in to update profile image.", "error");
-        return;
-    }
+    if (!file || !currentUser) return;
     try {
         await api.uploadProfileImage(currentUser, file, (progress) => {
             ui.showToast(`Uploading: ${Math.round(progress)}%`);
         });
         ui.showToast("Profile image updated!");
     } catch (error) {
-        ui.showToast("Upload failed: " + error.message, "error");
+        ui.showToast("Upload failed", "error");
     }
 }
 
@@ -457,8 +456,9 @@ async function handleMasterDocumentUpload(e) {
 }
 
 async function handleDeleteMasterDoc(e) {
-    if (!e.target.matches('.remove-doc-btn')) return;
-    const docId = e.target.dataset.docId;
+    const target = e.target.closest('.delete-doc-btn');
+    if (!target) return;
+    const docId = target.dataset.docId;
     if (confirm(`Permanently delete this document?`)) {
         try {
             const docToDelete = localDocumentsCache.find(d => d.id === docId);
@@ -467,6 +467,22 @@ async function handleDeleteMasterDoc(e) {
         } catch (error) {
             ui.showToast("Deletion failed", "error");
         }
+    }
+}
+
+async function handleDeleteAccount() {
+    if (!currentUser) return;
+    const confirmation = prompt('This action is permanent and cannot be undone. You will lose all your data. Type "DELETE" to confirm.');
+    if (confirmation === "DELETE") {
+        try {
+            await api.deleteUserAccount(currentUser);
+            ui.showToast("Account deleted successfully.", "error");
+            // Auth listener will handle cleanup and redirect to login page.
+        } catch(error) {
+            ui.showToast("Could not delete account. Please re-login and try again.", "error");
+        }
+    } else {
+        ui.showToast("Account deletion cancelled.");
     }
 }
 
@@ -500,13 +516,13 @@ function handleTagFilterClick(e) {
     ui.renderExperienceBook(localExperiencesCache, activeExperienceTags);
 }
 
-function enterSelectMode() { isSelectMode = true; document.getElementById('selection-action-bar').classList.remove('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }); }
-function exitSelectMode() { isSelectMode = false; selectedJobIds.clear(); updateSelectionCount(); document.getElementById('selection-action-bar').classList.add('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }); }
+function enterSelectMode() { isSelectMode = true; document.getElementById('selection-action-bar').classList.remove('hidden'); const uiSelectors = { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }; ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, uiSelectors); }
+function exitSelectMode() { isSelectMode = false; selectedJobIds.clear(); updateSelectionCount(); document.getElementById('selection-action-bar').classList.add('hidden'); const uiSelectors = { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }; ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, uiSelectors); }
 function updateSelectionCount() { document.getElementById('selected-count').textContent = selectedJobIds.size; }
 function handleSelectionChange(jobId, isChecked) { if (isChecked) selectedJobIds.add(jobId); else selectedJobIds.delete(jobId); updateSelectionCount(); const row = document.querySelector(`#jobs-table-body tr[data-job-id="${jobId}"]`); if (row) row.classList.toggle('selected-row', isChecked); }
 function handleDeleteSelected() { if (selectedJobIds.size > 0) ui.showDeleteModal(selectedJobIds.size); }
 async function executeDeleteSelected() { if (!currentUser || selectedJobIds.size === 0) return; try { await api.deleteMultipleJobs(currentUser.uid, selectedJobIds); ui.showToast(`${selectedJobIds.size} job(s) deleted.`, "error"); } catch (error) { ui.showToast("Bulk delete failed.", "error"); } finally { ui.hideDeleteModal(); exitSelectMode(); } }
-function handleSelectAll(e) { if(e.target.id === 'select-all-checkbox') { const isChecked = e.target.checked; ui.sortAndFilterJobs(localJobsCache, currentFilters).forEach(job => handleSelectionChange(job.id, isChecked)); document.getElementById('jobs-table-body').querySelectorAll('.row-checkbox').forEach(box => box.checked = isChecked); } }
+function handleSelectAll(e) { if(e.target.id === 'select-all-checkbox') { const isChecked = e.target.checked; const jobsToSelect = ui.sortAndFilterJobs(localJobsCache, currentFilters); jobsToSelect.forEach(job => handleSelectionChange(job.id, isChecked)); document.getElementById('jobs-table-body').querySelectorAll('.row-checkbox').forEach(box => box.checked = isChecked); } }
 
 function handleAttachFromRepo() {
     ui.populateAttachDocModal(localDocumentsCache);
