@@ -2,7 +2,7 @@
 
 // --- 0. IMPORTS ---
 // Import initialized Firebase services from our config file
-import { auth, db, storage } from './firebase-config.js';
+import { db, storage } from './firebase-config.js';
 // Import specific functions we need from the Firebase SDK
 import { 
     updateProfile,
@@ -13,7 +13,6 @@ import {
     addDoc, 
     deleteDoc, 
     updateDoc, 
-    setDoc,
     collection,
     writeBatch,
     Timestamp
@@ -120,20 +119,23 @@ export async function toggleExperienceFavorite(userId, experienceId, currentFavo
 // --- 3. USER PROFILE & SETTINGS API ---
 
 /**
- * Updates the user's first and last name in both Firebase Auth and Firestore.
+ * Updates the user's full name in both Firebase Auth and Firestore.
  * @param {object} user - The current Firebase Auth user object.
- * @param {string} firstName - The new first name.
- * @param {string} lastName - The new last name.
+ * @param {string} fullName - The new full name.
  * @returns {Promise<void>}
  */
-export async function updateUserProfileName(user, firstName, lastName) {
-    const fullName = `${firstName} ${lastName}`;
+export async function updateUserProfileName(user, fullName) {
+    const nameParts = fullName.split(' ') || [];
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     // Update the profile in Firebase Authentication (for display name)
     await updateProfile(user, { displayName: fullName });
     
     // Update the profile in Firestore document (for structured data)
     const userDocRef = doc(db, "users", user.uid);
     await updateDoc(userDocRef, { 
+        fullName: fullName,
         firstName: firstName,
         lastName: lastName,
         initials: `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase()
