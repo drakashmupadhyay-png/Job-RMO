@@ -17,11 +17,15 @@
                 <div class="login-header">
                     <div class="login-icon-wrapper"><i class="fa-solid fa-briefcase-medical"></i></div>
                     <h1>RMO Job-Flow</h1>
-                    <p class="login-subtitle">Please log in to access your dashboard.</p>
+                    <p class="login-subtitle">Please sign in to continue.</p>
                 </div>
-                <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" required></div>
+                <div class="form-group"><label for="login-email">Email / Login ID</label><input type="email" id="login-email" required></div>
                 <div class="form-group"><label for="login-pass">Password</label><input type="password" id="login-pass" required></div>
                 <button type="submit" class="primary-action-btn" style="width: 100%;">Login</button>
+                <div class="separator">OR</div>
+                <button type="button" id="google-login-btn" class="secondary-btn google-btn" style="width: 100%;">
+                    <img src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google logo"> Sign in with Google
+                </button>
                 <p id="login-error" class="hidden" style="color: var(--danger-red); margin-top: 15px;">Invalid credentials.</p>
                 <p class="auth-switch-text">Don't have an account? <a href="#" id="show-signup-link">Sign Up</a></p>
             </form>
@@ -32,7 +36,8 @@
                     <h1>Create Account</h1>
                     <p class="login-subtitle">Get started with RMO Job-Flow.</p>
                 </div>
-                <div class="form-group"><label for="signup-name">Full Name</label><input type="text" id="signup-name" required></div>
+                <div class="form-group"><label for="signup-fname">First Name</label><input type="text" id="signup-fname" required></div>
+                <div class="form-group"><label for="signup-lname">Last Name</label><input type="text" id="signup-lname" required></div>
                 <div class="form-group"><label for="signup-email">Email</label><input type="email" id="signup-email" required></div>
                 <div class="form-group"><label for="signup-pass">Password</label><input type="password" id="signup-pass" required></div>
                 <button type="submit" class="primary-action-btn" style="width: 100%;">Sign Up</button>
@@ -73,20 +78,24 @@
 
             <section id="dashboard-metrics" class="dashboard-metrics">
                 <div class="metric-card">
+                    <i class="fa-solid fa-briefcase"></i>
                     <div class="metric-value" id="metric-active">0</div>
                     <div class="metric-label">Active</div>
                 </div>
                 <div class="metric-card">
+                    <i class="fa-solid fa-circle-xmark"></i>
                     <div class="metric-value" id="metric-closed">0</div>
                     <div class="metric-label">Closed</div>
                 </div>
                 <div class="metric-card">
+                    <i class="fa-solid fa-bell"></i>
                     <div class="metric-value" id="metric-closing-soon">0</div>
                     <div class="metric-label">Closing Soon</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value" id="metric-follow-up-soon">0</div>
-                    <div class="metric-label">Follow-Up Soon</div>
+                    <i class="fa-solid fa-phone-volume"></i>
+                    <div class="metric-value" id="metric-follow-ups">0</div>
+                    <div class="metric-label">Follow-up Soon</div>
                 </div>
             </section>
 
@@ -108,6 +117,7 @@
                     <label for="sort-by-filter">Sort by:</label>
                     <select id="sort-by-filter">
                         <option value="default">Recently Added</option>
+                        <option value="closed-desc">Closed</option>
                         <option value="closing-asc">Closing Soon</option>
                         <option value="follow-up-asc">Follow-up Soon</option>
                     </select>
@@ -140,9 +150,7 @@
                 <!-- Mobile job cards will be rendered here by JavaScript -->
             </div>
 
-            <div id="calendar-view-container" class="view-container hidden">
-                <div id="calendar"></div>
-            </div>
+            <div id="calendar-view-container" class="view-container hidden"><div id="calendar"></div></div>
             
             <div id="selection-action-bar" class="selection-action-bar hidden">
                 <div class="selection-info">
@@ -155,6 +163,7 @@
             </div>
         </main>
 
+        <!-- EXPERIENCE BOOK PAGE -->
         <main id="experienceBook" class="page-content hidden">
             <header class="page-header-nav">
                 <h2><i class="fa-solid fa-book-bookmark"></i> Experience Book</h2>
@@ -170,6 +179,7 @@
             <div id="experience-cards-container" class="experience-cards-container"></div>
         </main>
 
+        <!-- EXPERIENCE DETAIL PAGE -->
         <main id="experienceDetailPage" class="page-content hidden">
             <header class="page-header-nav">
                 <button id="back-to-exp-book-btn" class="secondary-btn"><i class="fa-solid fa-arrow-left"></i> Back to Experience Book</button>
@@ -196,6 +206,7 @@
             </form>
         </main>
         
+        <!-- MY DOCUMENTS PAGE -->
         <main id="documents" class="page-content hidden">
             <header class="page-header-nav"><h2><i class="fa-solid fa-folder-open"></i> My Documents</h2></header>
             <section class="detail-section">
@@ -214,8 +225,10 @@
             </section>
         </main>
 
+        <!-- SETTINGS PAGE -->
         <main id="settings" class="page-content hidden">
             <header class="page-header-nav"><h2><i class="fa-solid fa-gear"></i> Settings</h2></header>
+            
             <section class="detail-section">
                 <h3>Your Profile</h3>
                 <div class="profile-layout">
@@ -225,7 +238,8 @@
                         <button type="button" id="profile-image-upload-btn" class="secondary-btn">Upload Image</button>
                     </div>
                     <div class="profile-details-section">
-                        <div class="form-group"><label for="profile-name">Full Name</label><input type="text" id="profile-name"></div>
+                        <div class="form-group"><label for="profile-fname">First Name</label><input type="text" id="profile-fname"></div>
+                        <div class="form-group"><label for="profile-lname">Last Name</label><input type="text" id="profile-lname"></div>
                         <div class="form-group"><label for="profile-email">Email Address</label><input type="email" id="profile-email" disabled></div>
                         <button id="save-profile-btn" class="primary-action-btn">Save Name</button>
                     </div>
@@ -238,6 +252,7 @@
                 </div>
                 <button id="update-password-btn" class="primary-action-btn">Update Password</button>
             </section>
+            
             <section class="detail-section">
                 <h3>Data Management</h3>
                 <p class="text-light">Export your data regularly as a backup or import data from a previous session.</p>
@@ -258,6 +273,7 @@
             </section>
         </main>
         
+        <!-- APPLICATION DETAIL PAGE -->
         <main id="applicationDetailPage" class="page-content hidden">
             <header class="page-header-nav"><button id="back-to-dashboard-btn" class="secondary-btn"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</button></header>
             <section id="detail-summary-card" class="detail-summary-card">
@@ -312,14 +328,7 @@
                 <div id="tracker-panel" class="tab-panel">
                     <section class="detail-section"><h3>Your Application Progress</h3><div class="form-grid-3-col"><div><label for="detail-status">Overall Status</label><select id="detail-status"></select></div><div><label for="detail-date-applied">Date Applied / EOI Sent</label><input type="date" id="detail-date-applied"></div><div><label for="detail-follow-up-date">Follow-Up Date</label><input type="date" id="detail-follow-up-date"></div><div class="checkbox-group align-end"><input type="checkbox" id="detail-follow-up-complete"><label for="detail-follow-up-complete">Follow-Up Complete?</label></div></div></section>
                     <section class="detail-section"><h3>Selection Criteria Workbench</h3><p class="text-light" style="margin-bottom: 20px;">Craft your responses to the specific selection criteria for this job. Link responses from your Experience Book.</p><div id="selection-criteria-workbench" class="workbench-container"></div><div class="workbench-footer"><button type="button" id="add-criterion-btn" class="secondary-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button></div></section>
-                    <section class="detail-section">
-                        <h3>Documents & Attachments</h3>
-                        <p class="text-light">Manage the documents attached to this specific application.</p>
-                        <ul id="attached-docs-list" class="file-list">
-                            <!-- Attached documents will be rendered here -->
-                        </ul>
-                        <button type="button" id="attach-doc-btn" class="secondary-btn" style="margin-top: 15px;"><i class="fa-solid fa-paperclip"></i> Attach from My Documents</button>
-                    </section>
+                    <section class="detail-section"><h3>Documents & Attachments</h3><p class="text-light">Track the specific files you submitted for this application.</p><div class="documents-container"><div class="document-column"><h4>Official Documents</h4><ul id="official-docs-list" class="file-list"></ul><div class="add-document-form"><input type="file" id="official-doc-file-input" class="hidden"><button type="button" id="upload-official-doc-btn" class="secondary-btn">Upload Document</button></div></div><div class="document-column"><h4>My Submitted Documents</h4><ul id="my-docs-list" class="file-list"></ul><div class="add-document-form"><button type="button" id="attach-from-repo-btn" class="secondary-btn">Attach from Repository</button></div></div></div></section>
                     <section class="detail-section"><h3>Interview Details</h3><div class="form-grid-3-col"><div><label for="detail-interview-date">Interview Date & Time</label><input type="datetime-local" id="detail-interview-date"></div><div><label for="detail-interview-type">Interview Type</label><input type="text" id="detail-interview-type" placeholder="e.g., Panel, MMI, Virtual"></div><div class="checkbox-group"><input type="checkbox" id="detail-thank-you-sent"><label for="detail-thank-you-sent">Post-Interview Thank You Sent?</label></div></div></section>
                     <section class="detail-section">
                         <h3>Job Tracker Notes</h3>
@@ -348,7 +357,7 @@
     
     <!-- MODALS & HIDDEN INPUTS -->
     <div id="summary-modal-backdrop" class="modal-backdrop hidden">
-        <div class="modal">
+        <div id="summary-modal" class="modal">
             <div class="modal-header"><h3 id="summary-modal-title">Bulk Add Summary</h3><button id="summary-modal-close-btn" class="modal-close-btn">×</button></div>
             <div class="modal-body"><p id="summary-modal-success"></p><div id="summary-modal-skipped-section" class="hidden"><p>The following jobs were skipped as duplicates:</p><ul id="summary-modal-skipped-list"></ul></div></div>
             <div class="modal-footer"><button id="summary-modal-ok-btn" class="primary-action-btn">OK</button></div>
@@ -368,7 +377,7 @@
         </div>
     </div>
     <div id="link-experience-modal-backdrop" class="modal-backdrop hidden">
-        <div class="modal">
+        <div id="link-experience-modal" class="modal">
              <div class="modal-header"><h3>Link an Experience</h3><button id="link-experience-close-btn" class="modal-close-btn">×</button></div>
              <div class="modal-body">
                 <input type="search" id="link-experience-search" placeholder="Search your experiences...">
@@ -377,22 +386,13 @@
         </div>
     </div>
     <div id="attach-document-modal-backdrop" class="modal-backdrop hidden">
-        <div class="modal">
-             <div class="modal-header">
-                <h3>Attach Documents</h3>
-                <button id="attach-doc-modal-close-btn" class="modal-close-btn">×</button>
-             </div>
-             <div class="modal-body">
-                <p>Select documents from your repository to attach to this application.</p>
-                <ul id="attach-doc-modal-list" class="file-list">
-                    <!-- Master documents will be rendered here as selectable items -->
-                </ul>
-             </div>
-             <div class="modal-footer">
-                <button id="attach-doc-modal-cancel-btn" class="secondary-btn">Cancel</button>
-                <button id="attach-doc-modal-confirm-btn" class="primary-action-btn">Attach Selected</button>
-             </div>
-        </div>
+        <div id="attach-document-modal" class="modal">
+            <div class="modal-header"><h3>Attach from Repository</h3><button id="attach-document-close-btn" class="modal-close-btn">×</button></div>
+            <div class="modal-body">
+               <p>Select a document to attach to this application.</p>
+               <ul id="attach-document-list"></ul>
+            </div>
+       </div>
     </div>
 
     <input type="file" id="import-file-input" class="hidden" accept=".json">
