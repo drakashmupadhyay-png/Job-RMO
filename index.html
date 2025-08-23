@@ -67,15 +67,42 @@
             <header class="dashboard-header">
                 <div class="dashboard-title"><h2>Application Dashboard</h2><p>Your master overview of all job applications.</p></div>
                 <div class="header-actions">
-                    <button id="select-jobs-btn" class="secondary-btn"><i class="fa-solid fa-check-square"></i> Select</button>
-                    <button id="toggle-filters-btn" class="secondary-btn toggle-filters-btn"><i class="fa-solid fa-filter"></i> Filters <i class="fa-solid fa-chevron-down"></i></button>
-                    <div class="view-switcher">
-                        <button id="table-view-btn" class="view-btn active"><i class="fa-solid fa-table-list"></i> Table</button>
-                        <button id="calendar-view-btn" class="view-btn"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
-                    </div>
                     <button id="add-new-application-btn" class="primary-action-btn"><i class="fa-solid fa-plus"></i> Add Application</button>
                 </div>
             </header>
+
+            <section id="dashboard-metrics" class="dashboard-metrics">
+                <div class="metric-card">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <div class="metric-value" id="metric-active-apps">0</div>
+                    <div class="metric-label">Active Applications</div>
+                </div>
+                <div class="metric-card">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <div class="metric-value" id="metric-interviews">0</div>
+                    <div class="metric-label">Interviews Offered</div>
+                </div>
+                <div class="metric-card">
+                    <i class="fa-solid fa-handshake"></i>
+                    <div class="metric-value" id="metric-offers">0</div>
+                    <div class="metric-label">Offers Received</div>
+                </div>
+                <div class="metric-card">
+                    <i class="fa-solid fa-phone-volume"></i>
+                    <div class="metric-value" id="metric-follow-ups">0</div>
+                    <div class="metric-label">Upcoming Follow-Ups</div>
+                </div>
+            </section>
+
+            <section class="dashboard-controls">
+                <button id="select-jobs-btn" class="secondary-btn"><i class="fa-solid fa-check-square"></i> Select</button>
+                <button id="toggle-filters-btn" class="secondary-btn toggle-filters-btn"><i class="fa-solid fa-filter"></i> Filters <i class="fa-solid fa-chevron-down"></i></button>
+                <div class="view-switcher">
+                    <button id="table-view-btn" class="view-btn active"><i class="fa-solid fa-table-list"></i> Table</button>
+                    <button id="calendar-view-btn" class="view-btn"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
+                </div>
+            </section>
+            
             <section id="filter-controls" class="filter-controls collapsed">
                 <div class="filter-group"><label for="state-filter">State:</label><select id="state-filter"><option value="all">All States</option><option value="NSW">NSW</option><option value="VIC">VIC</option><option value="QLD">QLD</option><option value="WA">WA</option><option value="SA">SA</option><option value="TAS">TAS</option><option value="NT">NT</option><option value="ACT">ACT</option></select></div>
                 <div class="filter-group"><label for="type-filter">Type:</label><select id="type-filter"><option value="all">All Types</option><option value="Statewide Campaign">Statewide Campaign</option><option value="Direct Hospital">Direct Hospital</option><option value="Proactive EOI">Proactive EOI</option></select></div>
@@ -99,16 +126,25 @@
                         <thead>
                             <tr>
                                 <th class="select-col hidden"><input type="checkbox" id="select-all-checkbox" title="Select All Visible"></th>
-                                <th>Job (Title & Hospital)</th>
-                                <th>State</th>
-                                <th>Closing Date</th>
                                 <th>Status</th>
-                                <th>Follow-Up</th>
+                                <th>Closing Date</th>
+                                <th>Job Title & Role Level</th>
+                                <th>Hospital / Health Service</th>
+                                <th>Location</th>
+                                <th>Application Type</th>
+                                <th>Follow-Up Date</th>
+                                <th>Interview Date</th>
+                                <th>Date Applied</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="jobs-table-body"></tbody>
                     </table>
                 </div>
+            </div>
+
+            <div id="card-view-container" class="view-container">
+                <!-- Mobile job cards will be rendered here by JavaScript -->
             </div>
 
             <div id="calendar-view-container" class="view-container hidden"><div id="calendar"></div></div>
@@ -233,7 +269,7 @@
             </section>
         </main>
         
-        <!-- APPLICATION DETAIL PAGE (Content is extensive and remains unchanged) -->
+        <!-- APPLICATION DETAIL PAGE -->
         <main id="applicationDetailPage" class="page-content hidden">
             <header class="page-header-nav"><button id="back-to-dashboard-btn" class="secondary-btn"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</button></header>
             <section id="detail-summary-card" class="detail-summary-card">
