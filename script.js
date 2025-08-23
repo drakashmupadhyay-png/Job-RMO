@@ -8,7 +8,8 @@ import {
     signInWithEmailAndPassword, 
     onAuthStateChanged, 
     signOut,
-    updateProfile
+    updateProfile,
+    updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { 
     getFirestore,
@@ -151,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileNameInput = document.getElementById('profile-name'), profileEmailInput = document.getElementById('profile-email');
     const profileImagePreview = document.getElementById('profile-image-preview'), profileImageUpload = document.getElementById('profile-image-upload'), profileImageUploadBtn = document.getElementById('profile-image-upload-btn');
     const saveProfileBtn = document.getElementById('save-profile-btn');
+    const newPasswordInput = document.getElementById('profile-new-password');
+    const updatePasswordBtn = document.getElementById('update-password-btn');
     const masterDocsList = document.getElementById('master-docs-list');
     const masterDocFileInput = document.getElementById('master-doc-file-input'), masterDocBrowseBtn = document.getElementById('master-doc-browse-btn');
     const exportDataBtn = document.getElementById('export-data-btn'), importDataBtn = document.getElementById('import-data-btn'), importFileInput = document.getElementById('import-file-input');
@@ -207,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeCalendar();
         updateClock();
         if(clockInterval) clearInterval(clockInterval);
-        clockInterval = setInterval(updateClock, 1000);
+        clockInterval = setInterval(updateClock, 1000); // FIX: Ticking clock
         navigateToPage('dashboard');
     }
 
@@ -228,15 +231,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function attachFirestoreListeners(userId) {
         const jobsRef = collection(db, `users/${userId}/jobs`);
+        // FIX: Convert Timestamps to JS Dates immediately upon receiving data
         jobsUnsubscribe = onSnapshot(query(jobsRef, orderBy("createdAt", "desc")), (snapshot) => {
-            localJobsCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            localJobsCache = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    ...data,
+                    id: doc.id,
+                    closingDate: data.closingDate ? data.closingDate.toDate() : null,
+                    dateApplied: data.dateApplied ? data.dateApplied.toDate() : null,
+                    followUpDate: data.followUpDate ? data.followUpDate.toDate() : null,
+                    interviewDate: data.interviewDate ? data.interviewDate.toDate() : null,
+                    createdAt: data.createdAt ? data.createdAt.toDate() : null
+                };
+            });
             masterDashboardRender();
         });
 
         const experiencesRef = collection(db, `users/${userId}/experiences`);
         experiencesUnsubscribe = onSnapshot(query(experiencesRef, orderBy("createdAt", "desc")), (snapshot) => {
             localExperiencesCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            if (!mainAppPages.experienceBook.classList.contains('hidden')) {
+            if (mainAppPages.experienceBook && !mainAppPages.experienceBook.classList.contains('hidden')) {
                 renderExperienceBook();
             }
         });
@@ -244,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const documentsRef = collection(db, `users/${userId}/documents`);
         documentsUnsubscribe = onSnapshot(query(documentsRef, orderBy("uploadedAt", "desc")), (snapshot) => {
             localDocumentsCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            if (!mainAppPages.documents.classList.contains('hidden')) {
+            if (mainAppPages.documents && !mainAppPages.documents.classList.contains('hidden')) {
                 renderMasterDocuments();
             }
         });
@@ -291,13 +306,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (['Interview Offered', 'Offer Received'].includes(job.status)) {
                 row.classList.add('status-row-highlight');
             }
-            
-            job.closingDateJS = job.closingDate ? job.closingDate.toDate() : null;
-            job.followUpDateJS = job.followUpDate ? job.followUpDate.toDate() : null;
 
             let followUpDisplay = 'N/A';
-            if (job.followUpDateJS) {
-                 const followUpDate = job.followUpDateJS;
+            if (job.followUpDate) {
+                 const followUpDate = job.followUpDate;
                  const today = new Date(); today.setHours(0,0,0,0);
                  if (job.followUpComplete) followUpDisplay = `<span class="date-completed"><i class="fa-solid fa-check"></i> ${followUpDate.toLocaleDateString('en-GB')}</span>`;
                  else if (followUpDate < today) followUpDisplay = `<span class="date-overdue">${followUpDate.toLocaleDateString('en-GB')}</span>`;
@@ -368,9 +380,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateApplicationDetailPage(job) {
         applicationDetailForm.reset();
         jobIdError.classList.add('hidden');
-        applicationDetailForm.querySelectorAll('.editable-field').forEach(div => {
-            div.textContent = '';
-            div.classList.remove('input-error');
+        applicationDetailForm.querySelectorAll('.editable-field, textarea').forEach(el => {
+            if(el.isContentEditable) el.textContent = '';
+            else el.value = '';
+            el.classList.remove('input-error');
         });
 
         if (job) {
@@ -384,18 +397,17 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('summary-status').textContent = status;
             document.getElementById('summary-status').className = `tag status-${status.toLowerCase().replace(/ /g, '-')}`;
             
-            const closingDateJS = job.closingDate ? job.closingDate.toDate() : null;
-            document.getElementById('summary-closing-date').textContent = closingDateJS ? formatDateTimeWithOriginalTZ(closingDateJS, job.closingDateTimezone) : 'N/A';
+            document.getElementById('summary-closing-date').textContent = job.closingDate ? formatDateTimeWithOriginalTZ(job.closingDate, job.closingDateTimezone) : 'N/A';
             
             for (const key in job) {
                 const el = document.getElementById(`detail-${key.replace(/([A-Z])/g, "-$1").toLowerCase()}`);
                 if (el) {
-                    if (el.classList.contains('editable-field')) {
+                    if (el.isContentEditable) {
                         el.textContent = job[key] || '';
                     } else if (el.type === 'checkbox') {
                         el.checked = job[key] || false;
                     } else if (el.type === 'datetime-local' || el.type === 'date') {
-                        const dateValue = job[key] ? job[key].toDate() : null;
+                        const dateValue = job[key]; // Already a JS Date object
                         if (dateValue) {
                             el.value = new Date(dateValue.getTime() - (dateValue.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
                         } else {
@@ -407,14 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             document.getElementById('detail-closing-date-tz').value = job.closingDateTimezone || 'Australia/Sydney';
-            document.getElementById('detail-job-notes').value = job.jobDetailNotes || '';
-            document.getElementById('detail-tracker-notes').value = job.jobTrackerNotes || '';
 
         } else {
             currentJobId = null;
             stagedDocuments = [];
             stagedCriteria = [];
-            applicationDetailForm.reset();
             document.getElementById('summary-job-title').textContent = 'New Application';
             document.getElementById('summary-hospital').textContent = 'Enter details below';
             document.getElementById('summary-status').textContent = 'Identified';
@@ -471,17 +480,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sortBy = currentFilters.sortBy; 
         const today = new Date(); today.setHours(0, 0, 0, 0); 
-        const toDate = (ts) => ts ? ts.toDate() : null;
 
         switch (sortBy) { 
-            case 'closing-asc': return processedJobs.filter(j => toDate(j.closingDate) && toDate(j.closingDate) >= today).sort((a, b) => toDate(a.closingDate) - toDate(b.closingDate)); 
-            case 'follow-up-asc': return processedJobs.filter(j => toDate(j.followUpDate) && !j.followUpComplete && toDate(j.followUpDate) >= today).sort((a, b) => toDate(a.followUpDate) - toDate(b.followUpDate)); 
+            case 'closing-asc': return processedJobs.filter(j => j.closingDate && j.closingDate >= today).sort((a, b) => a.closingDate - b.closingDate); 
+            case 'follow-up-asc': return processedJobs.filter(j => j.followUpDate && !j.followUpComplete && j.followUpDate >= today).sort((a, b) => a.followUpDate - b.followUpDate); 
             default: return processedJobs;
         } 
     }
 
     function initializeCalendar() { if (calendarEl && !calendar) { calendar = new FullCalendar.Calendar(calendarEl, { initialView: 'dayGridMonth', headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }, events: [], eventClick: (info) => { const jobId = info.event.extendedProps.jobId; const job = localJobsCache.find(j => j.id === jobId); if (job) { populateApplicationDetailPage(job); navigateToPage('applicationDetailPage'); } } }); } }
-    function renderCalendarEvents() { if (!calendar) return; const events = localJobsCache.flatMap(job => { const eventList = []; const today = new Date(); const toDate = ts => ts ? ts.toDate() : null; const closingDate = toDate(job.closingDate); const followUpDate = toDate(job.followUpDate); const interviewDate = toDate(job.interviewDate); if (closingDate) eventList.push({ title: `${closingDate < today ? 'Closed:' : 'Closes:'} ${job.jobTitle}`, start: closingDate, backgroundColor: 'var(--danger-red)', allDay: true, extendedProps: { jobId: job.id } }); if (followUpDate && !job.followUpComplete) eventList.push({ title: `Follow-Up: ${job.jobTitle}`, start: followUpDate, backgroundColor: 'var(--warning-orange)', extendedProps: { jobId: job.id } }); if (interviewDate) eventList.push({ title: `Interview: ${job.jobTitle}`, start: interviewDate, backgroundColor: 'var(--primary-blue)', extendedProps: { jobId: job.id } }); return eventList; }); calendar.removeAllEvents(); calendar.addEventSource(events); calendar.render(); }
+    function renderCalendarEvents() { if (!calendar) return; const events = localJobsCache.flatMap(job => { const eventList = []; const today = new Date(); const closingDate = job.closingDate; const followUpDate = job.followUpDate; const interviewDate = job.interviewDate; if (closingDate) eventList.push({ title: `${closingDate < today ? 'Closed:' : 'Closes:'} ${job.jobTitle}`, start: closingDate, backgroundColor: 'var(--danger-red)', allDay: true, extendedProps: { jobId: job.id } }); if (followUpDate && !job.followUpComplete) eventList.push({ title: `Follow-Up: ${job.jobTitle}`, start: followUpDate, backgroundColor: 'var(--warning-orange)', extendedProps: { jobId: job.id } }); if (interviewDate) eventList.push({ title: `Interview: ${job.jobTitle}`, start: interviewDate, backgroundColor: 'var(--primary-blue)', extendedProps: { jobId: job.id } }); return eventList; }); calendar.removeAllEvents(); calendar.addEventSource(events); calendar.render(); }
     function renderDocuments(docs) { const officialDocsList = document.getElementById('official-docs-list'), myDocsList = document.getElementById('my-docs-list'); officialDocsList.innerHTML = ''; myDocsList.innerHTML = ''; docs.forEach(doc => { const li = document.createElement('li'); li.innerHTML = `<span>${doc.name}</span><button type="button" class="remove-doc-btn" data-doc-id="${doc.id}">×</button>`; if (doc.type === 'official') officialDocsList.appendChild(li); else myDocsList.appendChild(li); }); }
     function syncWorkbenchFromDOM() { const items = workbenchContainer.querySelectorAll('.workbench-item'); stagedCriteria = Array.from(items).map((item) => ({ criterion: item.querySelector('.workbench-criterion').textContent, response: item.querySelector('textarea').value })); }
     function renderWorkbench(criteria = []) { workbenchContainer.innerHTML = ''; if (criteria && criteria.length > 0) { criteria.forEach((item, index) => { const div = document.createElement('div'); div.className = 'workbench-item'; div.innerHTML = ` <div class="workbench-header"> <div class="workbench-criterion" contenteditable="true" data-index="${index}">${item.criterion}</div> <button type="button" class="remove-criterion-btn" data-index="${index}" title="Remove Criterion">×</button> </div> <div class="workbench-actions"> <button type="button" class="secondary-btn link-experience-btn" data-index="${index}"><i class="fa-solid fa-link"></i> Link Experience</button> </div> <textarea class="workbench-textarea" data-index="${index}" rows="6" placeholder="Craft your response here...">${item.response || ''}</textarea> `; workbenchContainer.appendChild(div); }); } }
@@ -494,6 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachMainAppEventListeners() {
         // NAVIGATION & USER MENU
         mainNavLinks.addEventListener('click', handleNavigation);
+        userDropdown.addEventListener('click', handleNavigation); // FIX: For settings button
         navUserMenu.addEventListener('click', (e) => { e.stopPropagation(); userDropdown.classList.toggle('hidden'); });
         window.addEventListener('click', () => { if (!userDropdown.classList.contains('hidden')) { userDropdown.classList.add('hidden'); } });
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
@@ -537,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // SETTINGS & DOCUMENTS
         saveProfileBtn.addEventListener('click', handleSaveProfile);
+        updatePasswordBtn.addEventListener('click', handleUpdatePassword);
         profileImageUploadBtn.addEventListener('click', () => profileImageUpload.click());
         profileImageUpload.addEventListener('change', handleProfileImageUpload);
         masterDocBrowseBtn.addEventListener('click', () => masterDocFileInput.click());
@@ -568,14 +578,14 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleSignup(e) { e.preventDefault(); signupError.classList.add('hidden'); try { const cred = await createUserWithEmailAndPassword(auth, signupEmailInput.value, signupPassInput.value); await updateProfile(cred.user, { displayName: signupNameInput.value }); await setDoc(doc(db, "users", cred.user.uid), { name: signupNameInput.value, email: cred.user.email, createdAt: Timestamp.now() }); } catch (error) { signupError.textContent = error.message; signupError.classList.remove('hidden'); } }
     
     // NAVIGATION & VIEW HANDLERS
-    function handleNavigation(e) { e.preventDefault(); const link = e.target.closest('a'); if (link) { navigateToPage(link.getAttribute('href').substring(1)); } }
+    function handleNavigation(e) { e.preventDefault(); const link = e.target.closest('a'); if (link && link.href.includes('#')) { navigateToPage(link.getAttribute('href').substring(1)); } }
     function switchDashboardView(view) { if (isSelectMode) exitSelectMode(); tableViewContainer.classList.toggle('hidden', view !== 'table'); calendarViewContainer.classList.toggle('hidden', view !== 'calendar'); tableViewBtn.classList.toggle('active', view === 'table'); calendarViewBtn.classList.toggle('active', view === 'calendar'); if (view === 'calendar' && calendar) { setTimeout(() => calendar.render(), 0); } }
     function handleToggleFilters() { filterControls.classList.toggle('collapsed'); toggleFiltersBtn.classList.toggle('open'); }
     function handleTabSwitch(e) { const targetButton = e.target.closest('.tab-btn'); if (!targetButton) return; const targetPanelId = targetButton.dataset.target; const targetPanel = document.getElementById(targetPanelId); tabSwitcher.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); applicationDetailPage.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active')); targetButton.classList.add('active'); if (targetPanel) targetPanel.classList.add('active'); }
 
     // DATA HANDLERS (JOBS)
     function handleAddNewApplication() { populateApplicationDetailPage(null); navigateToPage('applicationDetailPage'); }
-    function handleJobsTableClick(e) { const row = e.target.closest('tr'); if (!row || !row.dataset.jobId) return; if (isSelectMode) { const checkbox = row.querySelector('.row-checkbox'); if (checkbox) { checkbox.checked = !e.target.matches('input'); handleSelectionChange(checkbox.dataset.jobId, checkbox.checked); } } else { const job = localJobsCache.find(j => j.id === row.dataset.jobId); if(job) { populateApplicationDetailPage(job); navigateToPage('applicationDetailPage'); } } }
+    function handleJobsTableClick(e) { const row = e.target.closest('tr'); if (!row || !row.dataset.jobId) return; if (isSelectMode) { const checkbox = row.querySelector('.row-checkbox'); if (checkbox) { if (e.target.tagName !== 'INPUT') { checkbox.checked = !checkbox.checked; } handleSelectionChange(checkbox.dataset.jobId, checkbox.checked); } } else { const job = localJobsCache.find(j => j.id === row.dataset.jobId); if(job) { populateApplicationDetailPage(job); navigateToPage('applicationDetailPage'); } } }
     async function handleSaveApplication(e) { e.preventDefault(); if (!currentUser) return showToast("Authentication error", "error"); syncWorkbenchFromDOM(); const getValue = (id) => document.getElementById(id).value; const getText = (id) => document.getElementById(id).textContent; const getChecked = (id) => document.getElementById(id).checked; const jobData = { jobTitle: getText('detail-job-title'), hospital: getText('detail-hospital'), healthNetwork: getText('detail-health-network'), sourceUrl: getText('detail-source-url'), location: getText('detail-location'), state: getValue('detail-state'), jobId: getText('detail-job-id').trim(), applicationType: getValue('detail-application-type'), portal: getText('detail-portal'), specialty: getText('detail-specialty'), roleLevel: getValue('detail-role-level'), contactPerson: getText('detail-contact-person'), contactEmail: getText('detail-contact-email'), contactPhone: getText('detail-contact-phone'), jobDetailNotes: getValue('detail-job-notes'), status: getValue('detail-status'), followUpComplete: getChecked('detail-follow-up-complete'), interviewType: getValue('detail-interview-type'), thankYouSent: getChecked('detail-thank-you-sent'), jobTrackerNotes: getValue('detail-tracker-notes'), closingDate: getValue('detail-closing-date') ? Timestamp.fromDate(new Date(getValue('detail-closing-date'))) : null, closingDateTimezone: getValue('detail-closing-date-tz'), dateApplied: getValue('detail-date-applied') ? Timestamp.fromDate(new Date(getValue('detail-date-applied'))) : null, followUpDate: getValue('detail-follow-up-date') ? Timestamp.fromDate(new Date(getValue('detail-follow-up-date'))) : null, interviewDate: getValue('detail-interview-date') ? Timestamp.fromDate(new Date(getValue('detail-interview-date'))) : null, jobSelectionCriteria: stagedCriteria, documents: stagedDocuments }; try { if (currentJobId) { await updateDoc(doc(db, `users/${currentUser.uid}/jobs`, currentJobId), jobData); showToast("Application updated!"); } else { jobData.createdAt = Timestamp.now(); await addDoc(collection(db, `users/${currentUser.uid}/jobs`), jobData); showToast("Application added!"); } navigateToPage('dashboard'); } catch (error) { console.error("Error saving application: ", error); showToast("Could not save application", "error"); } }
     async function handleDeleteApplication() { if (currentJobId && confirm("Are you sure? This action cannot be undone.")) { try { await deleteDoc(doc(db, `users/${currentUser.uid}/jobs`, currentJobId)); showToast("Application deleted", "error"); navigateToPage('dashboard'); } catch (error) { showToast("Deletion failed", "error"); } } }
     function handleDuplicateApplication() { if (!currentJobId) return; const originalJob = localJobsCache.find(j => j.id === currentJobId); if (!originalJob) return; const newJob = JSON.parse(JSON.stringify(originalJob)); newJob.id = null; newJob.jobTitle = `${originalJob.jobTitle} (Copy)`; newJob.jobId = ''; newJob.status = 'Identified'; newJob.dateApplied = null; newJob.closingDate = null; populateApplicationDetailPage(newJob); showToast('Application duplicated.'); }
@@ -587,7 +597,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleCopyExperience() { navigator.clipboard.writeText(document.getElementById('exp-paragraph').value).then(() => showToast('Response copied to clipboard')); }
 
     // DATA HANDLERS (SETTINGS & DOCUMENTS)
-    async function handleSaveProfile() { if (!currentUser) return; try { await updateProfile(currentUser, { displayName: profileNameInput.value }); await updateDoc(doc(db, "users", currentUser.uid), { name: profileNameInput.value }); showToast("Profile updated!"); } catch (error) { showToast("Update failed", "error"); } }
+    async function handleSaveProfile() { if (!currentUser) return; try { const newName = profileNameInput.value; if (currentUser.displayName !== newName) { await updateProfile(currentUser, { displayName: newName }); await updateDoc(doc(db, "users", currentUser.uid), { name: newName }); showToast("Name updated!"); } } catch (error) { showToast("Name update failed", "error"); } }
+    async function handleUpdatePassword() { if (!currentUser) return; const newPassword = newPasswordInput.value; if (newPassword.length < 6) { showToast("Password must be at least 6 characters.", "error"); return; } try { await updatePassword(currentUser, newPassword); showToast("Password updated successfully!"); newPasswordInput.value = ''; } catch (error) { showToast("Password update failed. Please log out and log back in.", "error"); console.error(error); } }
     function handleProfileImageUpload(e) { const file = e.target.files[0]; if (!file || !currentUser) return; const storageRef = ref(storage, `users/${currentUser.uid}/profileImage`); const uploadTask = uploadBytesResumable(storageRef, file); uploadTask.on('state_changed', (snapshot) => showToast(`Uploading: ${Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)}%`), (error) => showToast("Upload failed", "error"), async () => { const url = await getDownloadURL(uploadTask.snapshot.ref); await updateProfile(currentUser, { photoURL: url }); await updateDoc(doc(db, "users", currentUser.uid), { photoURL: url }); showToast("Profile image updated!"); }); }
     function handleMasterDocumentUpload(e) { const file = e.target.files[0]; if (!file || !currentUser) return; const storageRef = ref(storage, `users/${currentUser.uid}/documents/${Date.now()}_${file.name}`); const uploadTask = uploadBytesResumable(storageRef, file); uploadTask.on('state_changed', null, (error) => showToast("Upload failed", "error"), async () => { const url = await getDownloadURL(uploadTask.snapshot.ref); await addDoc(collection(db, `users/${currentUser.uid}/documents`), { name: file.name, url: url, uploadedAt: Timestamp.now() }); showToast("Document uploaded!"); }); }
     async function handleDeleteMasterDoc(e) { if (!e.target.matches('.remove-doc-btn')) return; const docId = e.target.dataset.docId; if (confirm(`Permanently delete this document?`)) { try { const docToDelete = localDocumentsCache.find(d => d.id === docId); if (docToDelete) { const fileRef = ref(storage, docToDelete.url); await deleteObject(fileRef); } await deleteDoc(doc(db, `users/${currentUser.uid}/documents`, docId)); showToast("Document deleted", "error"); } catch (error) { showToast("Deletion failed, file may not exist in storage.", "error"); } } }
@@ -617,10 +628,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 6. HELPER FUNCTIONS ---
     function navigateToPage(pageKey) { if (isSelectMode) exitSelectMode(); Object.values(mainAppPages).forEach(p => p.classList.add('hidden')); if(mainAppPages[pageKey]) mainAppPages[pageKey].classList.remove('hidden'); mainNavLinks.querySelectorAll('a').forEach(l => l.classList.toggle('active', l.getAttribute('href') === `#${pageKey}`)); if (pageKey === 'experienceBook') renderExperienceBook(); if (pageKey === 'documents') renderMasterDocuments(); if (!userDropdown.classList.contains('hidden')) userDropdown.classList.add('hidden'); }
-    function updateClock() { try { const now = new Date(); const timeString = now.toLocaleTimeString('en-US', { timeZone: timeZoneSelector.value, hour: '2-digit', minute: '2-digit', hour12: true }); const dateString = now.toLocaleDateString('en-GB', { timeZone: timeZoneSelector.value, weekday: 'short', day: 'numeric', month: 'short' }); currentTimeDisplay.textContent = `${dateString}, ${timeString}`; } catch (e) { currentTimeDisplay.textContent = "Invalid Timezone"; } }
+    function updateClock() { try { const now = new Date(); const timeString = now.toLocaleTimeString('en-US', { timeZone: timeZoneSelector.value, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); const dateString = now.toLocaleDateString('en-GB', { timeZone: timeZoneSelector.value, weekday: 'short', day: 'numeric', month: 'short' }); currentTimeDisplay.textContent = `${dateString}, ${timeString}`; } catch (e) { currentTimeDisplay.textContent = "Invalid Timezone"; } }
     const timezoneMap = { 'Australia/Sydney': 'AEST/AEDT', 'Australia/Perth': 'AWST', 'Australia/Adelaide': 'ACST/ACDT', 'Australia/Brisbane': 'AEST', 'Australia/Darwin': 'ACST', 'Asia/Kolkata': 'IST' };
     function formatDateTimeWithOriginalTZ(date, originalTimezone) { if (!date || !originalTimezone) return 'N/A'; try { const tzAbbreviation = timezoneMap[originalTimezone] || originalTimezone; const datePart = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: originalTimezone }).format(date); const timePart = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true, timeZone: originalTimezone }).format(date); return `${datePart} at ${timePart} ${tzAbbreviation}`; } catch (e) { return 'Invalid Date'; } }
-    function formatClosingDateForTable(job) { if (!job.closingDateJS) return 'N/A'; try { const date = job.closingDateJS; const today = new Date(); today.setHours(0,0,0,0); const sevenDaysFromNow = new Date(); sevenDaysFromNow.setDate(today.getDate() + 7); const isClosingSoon = date >= today && date < sevenDaysFromNow; const closingSoonIndicator = isClosingSoon ? ` <i class="fa-solid fa-bell closing-soon-indicator" title="Closing within 7 days"></i>` : ''; const datePart = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date); return `${datePart}${closingSoonIndicator}`; } catch (e) { return 'Invalid Date'; } }
+    function formatClosingDateForTable(job) { if (!job.closingDate) return 'N/A'; try { const date = job.closingDate; const today = new Date(); today.setHours(0,0,0,0); const sevenDaysFromNow = new Date(); sevenDaysFromNow.setDate(today.getDate() + 7); const isClosingSoon = date >= today && date < sevenDaysFromNow; const closingSoonIndicator = isClosingSoon ? ` <i class="fa-solid fa-bell closing-soon-indicator" title="Closing within 7 days"></i>` : ''; const datePart = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date); return `${datePart}${closingSoonIndicator}`; } catch (e) { return 'Invalid Date'; } }
     function populateSelect(select, options, selected) { select.innerHTML = ''; options.forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; select.appendChild(opt); }); if (selected) select.value = selected; }
     function checkJobIdUniqueness() { const newJobId = document.getElementById('detail-job-id').textContent.trim(); const newAppType = document.getElementById('detail-application-type').value; if (!newJobId) { jobIdError.classList.add('hidden'); document.getElementById('detail-job-id').classList.remove('input-error'); return; } const isDuplicate = localJobsCache.some(j => j.jobId === newJobId && j.applicationType === newAppType && j.id !== currentJobId); jobIdError.classList.toggle('hidden', !isDuplicate); document.getElementById('detail-job-id').classList.toggle('input-error', isDuplicate); }
     function showToast(message, type = 'success', duration = 3000) { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.textContent = message; container.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, duration); }
