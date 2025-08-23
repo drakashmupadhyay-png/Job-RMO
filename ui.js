@@ -60,7 +60,7 @@ export function renderTable(jobs, filters, isSelectMode, selectedJobIds) {
     const processedJobs = sortAndFilterJobs(jobs, filters);
     
     if (processedJobs.length === 0) {
-        jobsTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;">No applications found matching your criteria.</td></tr>`;
+        jobsTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 40px;">No applications found matching your criteria.</td></tr>`;
         return;
     }
 
@@ -84,11 +84,7 @@ export function renderTable(jobs, filters, isSelectMode, selectedJobIds) {
             <td><span class="tag status-${job.status?.toLowerCase().replace(/ /g, '-')}">${job.status || 'N/A'}</span></td>
             <td>${followUpDisplay}</td>
             <td><small>${(job.jobTrackerNotes || '').substring(0, 40)}...</small></td>
-            <td>
-                <button class="action-btn view-btn" data-job-id="${job.id}" title="View/Edit"><i class="fa-solid fa-eye"></i></button>
-                <button class="action-btn duplicate-btn" data-job-id="${job.id}" title="Duplicate"><i class="fa-solid fa-copy"></i></button>
-                <button class="action-btn delete-btn" data-job-id="${job.id}" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
-            </td>`;
+        `;
         jobsTableBody.appendChild(row);
     });
 }
@@ -159,12 +155,26 @@ export function renderExperienceBook(experiences, activeTags) {
 }
 
 export function renderMasterDocuments(documents) {
-    const masterDocsList = document.getElementById('master-docs-list');
-    masterDocsList.innerHTML = '';
+    const masterDocsTbody = document.getElementById('master-docs-tbody');
+    masterDocsTbody.innerHTML = '';
+    if (documents.length === 0) {
+        masterDocsTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 40px;">Your document repository is empty.</td></tr>`;
+        return;
+    }
     documents.forEach(doc => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span><a href="${doc.url}" target="_blank" title="View Document">${doc.name}</a></span><button type="button" class="remove-doc-btn" data-doc-id="${doc.id}" title="Delete Document">×</button>`;
-        masterDocsList.appendChild(li);
+        const row = document.createElement('tr');
+        const fileSize = doc.size ? `${(doc.size / 1024 / 1024).toFixed(2)} MB` : 'N/A';
+        const uploadDate = doc.uploadedAt ? doc.uploadedAt.toDate().toLocaleDateString('en-GB') : 'N/A';
+        row.innerHTML = `
+            <td><i class="fa-solid fa-file-pdf"></i> ${doc.name}</td>
+            <td>${uploadDate}</td>
+            <td>${fileSize}</td>
+            <td>
+                <a href="${doc.url}" target="_blank" class="action-btn" title="Download"><i class="fa-solid fa-download"></i></a>
+                <button class="action-btn delete-doc-btn" data-doc-id="${doc.id}" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+        `;
+        masterDocsTbody.appendChild(row);
     });
 }
 
