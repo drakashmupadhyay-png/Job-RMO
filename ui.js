@@ -1,6 +1,6 @@
 "use strict";
 
-// This module is now a "dumb" renderer. It only knows how to display data when
+// This module is a "dumb" renderer. It only knows how to display data when
 // it is given the data and the HTML elements to draw into.
 
 // --- EXPORTED UI FUNCTIONS ---
@@ -8,25 +8,23 @@
 export function updateUIAfterLogin(user, userProfileData) {
     const navUserName = document.getElementById('nav-user-name');
     const navUserImg = document.getElementById('nav-user-img');
-    const profileFNameInput = document.getElementById('profile-fname');
-    const profileLNameInput = document.getElementById('profile-lname');
+    const profileNameInput = document.getElementById('profile-name');
     const profileEmailInput = document.getElementById('profile-email');
     const profileImagePreview = document.getElementById('profile-image-preview');
 
     const displayName = userProfileData.firstName || user.displayName?.split(' ')[0] || "User";
     navUserName.textContent = displayName;
     navUserImg.src = user.photoURL || 'placeholder.jpg';
-    profileFNameInput.value = userProfileData.firstName || '';
-    profileLNameInput.value = userProfileData.lastName || '';
+    profileNameInput.value = userProfileData.fullName || user.displayName || '';
     profileEmailInput.value = user.email || '';
     profileImagePreview.src = user.photoURL || 'placeholder.jpg';
 }
 
-export function masterDashboardRender(jobs, filters, isSelectMode, selectedJobIds, calendar, uiSelectors) {
+export function masterDashboardRender(jobs, filters, isSelectMode, selectedJobIds, calendar) {
     updateMetrics(jobs);
-    renderTable(jobs, filters, isSelectMode, selectedJobIds, uiSelectors);
-    renderCards(jobs, filters, uiSelectors);
-    if (calendar && !uiSelectors.calendarViewContainer.classList.contains('hidden')) {
+    renderTable(jobs, filters, isSelectMode, selectedJobIds);
+    renderCards(jobs, filters);
+    if (calendar && !document.getElementById('calendar-view-container').classList.contains('hidden')) {
         renderCalendarEvents(jobs, calendar);
     }
 }
@@ -52,14 +50,20 @@ export function updateMetrics(jobs) {
     metricFollowUps.textContent = followUpSoonJobs.length;
 }
 
-export function renderTable(jobs, filters, isSelectMode, selectedJobIds, uiSelectors) {
-    uiSelectors.jobsTableBody.innerHTML = '';
-    uiSelectors.jobsTableHeader.querySelector('.select-col').classList.toggle('hidden', !isSelectMode);
+export function renderTable(jobs, filters, isSelectMode, selectedJobIds) {
+    const jobsTableBody = document.getElementById('jobs-table-body');
+    const jobsTableHeader = document.querySelector('#table-view-container thead');
+    
+    jobsTableBody.innerHTML = '';
+    jobsTableHeader.querySelector('.select-col').classList.toggle('hidden', !isSelectMode);
+    
     const processedJobs = sortAndFilterJobs(jobs, filters);
+    
     if (processedJobs.length === 0) {
-        uiSelectors.jobsTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;">No applications found matching your criteria.</td></tr>`;
+        jobsTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;">No applications found matching your criteria.</td></tr>`;
         return;
     }
+
     processedJobs.forEach(job => {
         const row = document.createElement('tr');
         row.dataset.jobId = job.id;
@@ -85,21 +89,26 @@ export function renderTable(jobs, filters, isSelectMode, selectedJobIds, uiSelec
                 <button class="action-btn duplicate-btn" data-job-id="${job.id}" title="Duplicate"><i class="fa-solid fa-copy"></i></button>
                 <button class="action-btn delete-btn" data-job-id="${job.id}" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
             </td>`;
-        uiSelectors.jobsTableBody.appendChild(row);
+        jobsTableBody.appendChild(row);
     });
 }
 
-export function renderCards(jobs, filters, uiSelectors) {
-    uiSelectors.cardViewContainer.innerHTML = '';
+export function renderCards(jobs, filters) {
+    const cardViewContainer = document.getElementById('card-view-container');
+    const searchBar = document.getElementById('search-bar');
+    
+    cardViewContainer.innerHTML = '';
     const processedJobs = sortAndFilterJobs(jobs, filters);
+    
     if (processedJobs.length === 0) {
-        if (filters.search || filters.state !== 'all') {
-            uiSelectors.cardViewContainer.innerHTML = `<div class="empty-state-container"><i class="fa-solid fa-magnifying-glass"></i><h3>No Matches Found</h3><p>No applications match your current filters.</p></div>`;
+        if (searchBar.value || filters.state !== 'all') {
+            cardViewContainer.innerHTML = `<div class="empty-state-container"><i class="fa-solid fa-magnifying-glass"></i><h3>No Matches Found</h3><p>No applications match your current filters.</p></div>`;
         } else {
-            uiSelectors.cardViewContainer.innerHTML = `<div class="empty-state-container"><i class="fa-solid fa-folder-open"></i><h3>No Applications Yet</h3><p>Click "Add Application" to get started!</p></div>`;
+            cardViewContainer.innerHTML = `<div class="empty-state-container"><i class="fa-solid fa-folder-open"></i><h3>No Applications Yet</h3><p>Click "Add Application" to get started!</p></div>`;
         }
         return;
     }
+
     processedJobs.forEach(job => {
         const card = document.createElement('div');
         card.className = 'job-card';
@@ -118,7 +127,7 @@ export function renderCards(jobs, filters, uiSelectors) {
                     <span><i class="fa-solid fa-phone"></i> Follow-up: <strong>${job.followUpDate ? job.followUpDate.toLocaleDateString('en-GB') : 'N/A'}</strong></span>
                 </div>
             </div>`;
-        uiSelectors.cardViewContainer.appendChild(card);
+        cardViewContainer.appendChild(card);
     });
 }
 
@@ -159,7 +168,7 @@ export function renderMasterDocuments(documents) {
     });
 }
 
-export function populateApplicationDetailPage(job, stateOptions, typeOptions, roleLevelOptions) {
+export function populateApplicationDetailPage(job, stateOptions, typeOptions, roleLevelOptions, statusOptions) {
     const applicationDetailForm = document.getElementById('application-detail-form');
     applicationDetailForm.reset();
     document.getElementById('detail-job-id-error').classList.add('hidden');
@@ -199,7 +208,7 @@ export function populateApplicationDetailPage(job, stateOptions, typeOptions, ro
         populateSelect(document.getElementById('detail-state'), stateOptions, 'NSW');
         populateSelect(document.getElementById('detail-application-type'), typeOptions, 'Direct Hospital');
         populateSelect(document.getElementById('detail-role-level'), roleLevelOptions, 'RMO');
-        populateSelect(document.getElementById('detail-status'), ['Identified', 'Preparing Application', 'Applied', 'Interview Offered', 'Offer Received', 'Unsuccessful', 'Closed', 'Offer Declined'], 'Identified');
+        populateSelect(document.getElementById('detail-status'), statusOptions, 'Identified');
     }
     
     document.getElementById('delete-app-btn').classList.toggle('hidden', !job.id);
@@ -320,6 +329,7 @@ export function populateAttachDocModal(documents) {
 }
 
 function sortAndFilterJobs(sourceArray, filters) {
+    const closedStatuses = ['Closed', 'Offer Declined', 'Unsuccessful'];
     const searchTerm = filters.search.toLowerCase(); 
     let processedJobs = sourceArray.filter(job => { 
         const stateMatch = filters.state === 'all' || job.state === filters.state; 
