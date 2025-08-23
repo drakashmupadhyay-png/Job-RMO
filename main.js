@@ -3,7 +3,7 @@
 // --- 0. IMPORTS ---
 import { auth, db } from './firebase-config.js';
 import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { collection, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, doc, onSnapshot, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import * as api from './api.js';
 import * as ui from './ui.js';
 
@@ -24,6 +24,7 @@ let stagedDocuments = [];
 let stagedCriteria = [];
 let currentFilters = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default', roleLevel: 'all' };
 let activeExperienceTags = [];
+let currentWorkbenchTarget = null;
 let isSelectMode = false; 
 let selectedJobIds = new Set();
 let eventListenersAttached = false;
@@ -40,7 +41,6 @@ const statusOptions = ['Identified', 'Preparing Application', 'Applied', 'Interv
 export function initializeMainApp(user) {
     currentUser = user;
     
-    // All UI selectors are now declared here, ensuring the DOM is loaded.
     const uiSelectors = {
         navUserMenu: document.getElementById('nav-user-menu'),
         userDropdown: document.getElementById('user-dropdown'),
@@ -185,7 +185,7 @@ function attachMainAppEventListeners(selectors) {
     selectors.cardViewContainer.addEventListener('click', handleJobsTableClick);
     selectors.toggleFiltersBtn.addEventListener('click', handleToggleFilters);
     [selectors.stateFilter, selectors.typeFilter, selectors.statusFilter, selectors.sortByFilter, selectors.roleLevelFilter].forEach(el => el.addEventListener('change', handleFilterChange));
-    selectors.searchBar.addEventListener('input', () => { currentFilters.search = selectors.searchBar.value; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, selectors); });
+    selectors.searchBar.addEventListener('input', () => { currentFilters.search = selectors.searchBar.value; const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') }; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors); });
     selectors.clearFiltersBtn.addEventListener('click', handleClearFilters);
     selectors.selectJobsBtn.addEventListener('click', enterSelectMode);
     selectors.cancelSelectionBtn.addEventListener('click', exitSelectMode);
@@ -209,7 +209,7 @@ function attachMainAppEventListeners(selectors) {
     selectors.experienceCardsContainer.addEventListener('click', handleExperienceCardClick);
     selectors.experienceDetailForm.addEventListener('submit', handleSaveExperience);
     selectors.deleteExpBtn.addEventListener('click', handleDeleteExperience);
-    document.getElementById('copy-exp-btn').addEventListener('click', handleCopyExperience);
+    selectors.copyExpBtn.addEventListener('click', handleCopyExperience);
     
     selectors.saveProfileBtn.addEventListener('click', handleSaveProfile);
     selectors.updatePasswordBtn.addEventListener('click', handleUpdatePassword);
@@ -224,7 +224,7 @@ function attachMainAppEventListeners(selectors) {
     selectors.deleteModalConfirmBtn.addEventListener('click', executeDeleteSelected);
     selectors.attachDocCloseBtn.addEventListener('click', ui.hideAttachDocModal);
     selectors.attachDocList.addEventListener('click', handleAttachDocSelect);
-    document.getElementById('link-experience-close-btn').addEventListener('click', ui.hideLinkExperienceModal);
+    selectors.linkExperienceCloseBtn.addEventListener('click', ui.hideLinkExperienceModal);
     document.getElementById('link-experience-search').addEventListener('input', () => ui.populateLinkExperienceModal(localExperiencesCache));
     document.getElementById('link-experience-list').addEventListener('click', handleLinkExperienceSelect);
 }
@@ -243,7 +243,7 @@ function handleAddNewApplication() {
     currentJobId = null;
     stagedDocuments = [];
     stagedCriteria = [];
-    ui.populateApplicationDetailPage({}, stateOptions, typeOptions, roleLevelOptions);
+    ui.populateApplicationDetailPage({}, stateOptions, typeOptions, roleLevelOptions, statusOptions);
     ui.navigateToPage('applicationDetailPage');
 }
 
@@ -273,7 +273,7 @@ function handleViewJob(jobId) {
         currentJobId = job.id;
         stagedDocuments = job.documents || [];
         stagedCriteria = job.jobSelectionCriteria || [];
-        ui.populateApplicationDetailPage(job, stateOptions, typeOptions, roleLevelOptions);
+        ui.populateApplicationDetailPage(job, stateOptions, typeOptions, roleLevelOptions, statusOptions);
         ui.navigateToPage('applicationDetailPage');
     }
 }
@@ -330,7 +330,7 @@ function handleDuplicateApplication(jobId) {
     const originalJob = localJobsCache.find(j => j.id === idToDup);
     if (!originalJob) return;
     const newJob = JSON.parse(JSON.stringify(originalJob));
-    delete newJob.id; // Ensure it's treated as a new document
+    delete newJob.id;
     newJob.jobTitle = `${originalJob.jobTitle} (Copy)`;
     newJob.jobId = '';
     newJob.status = 'Identified';
@@ -339,7 +339,7 @@ function handleDuplicateApplication(jobId) {
     currentJobId = null;
     stagedDocuments = newJob.documents || [];
     stagedCriteria = newJob.jobSelectionCriteria || [];
-    ui.populateApplicationDetailPage(newJob, stateOptions, typeOptions, roleLevelOptions);
+    ui.populateApplicationDetailPage(newJob, stateOptions, typeOptions, roleLevelOptions, statusOptions);
     ui.navigateToPage('applicationDetailPage');
     ui.showToast('Application duplicated. Editing the new copy.');
 }
@@ -409,7 +409,7 @@ function handleCopyExperience() {
 async function handleSaveProfile() {
     if (!currentUser) return;
     try {
-        await api.updateUserProfileName(currentUser, profileFNameInput.value, profileLNameInput.value);
+        await api.updateUserProfileName(currentUser, document.getElementById('profile-name').value);
         ui.showToast("Name updated!");
     } catch (error) {
         ui.showToast("Name update failed", "error");
@@ -513,8 +513,7 @@ function handleAttachFromRepo() {
 function handleAttachDocSelect(e) {
     const target = e.target.closest('li');
     if(!target) return;
-    const docData = { id: Date.now(), type: 'submitted', name: target.dataset.docName, url: target.dataset.docUrl };
-    stagedDocuments.push(docData);
+    stagedDocuments.push({ id: Date.now(), type: 'submitted', name: target.dataset.docName, url: target.dataset.docUrl });
     ui.renderDocuments(stagedDocuments);
     ui.hideAttachDocModal();
 }
@@ -540,8 +539,6 @@ function handleTabSwitch(e) { const btn = e.target.closest('.tab-btn'); if(btn) 
 function handleOfficialDocUpload(e) {
     const file = e.target.files[0];
     if (!file || !currentUser) return;
-    // For now, we just add it to the staged documents list.
-    // A more robust solution might upload it immediately.
     stagedDocuments.push({ id: Date.now(), type: 'official', name: file.name, file: file });
     ui.renderDocuments(stagedDocuments);
     ui.showToast(`${file.name} staged for upload.`);
