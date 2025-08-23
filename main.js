@@ -2,12 +2,12 @@
 
 // --- 0. IMPORTS ---
 import { auth, db, storage } from './firebase-config.js';
-import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { signOut, updateProfile, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { collection, doc, onSnapshot, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import * as api from './api.js';
 import * as ui from './ui.js';
 
-// --- 1. GLOBAL STATE & UI SELECTORS ---
+// --- 1. GLOBAL STATE (SAFE TO DECLARE HERE) ---
 let currentUser = null;
 let userProfileData = {};
 let jobsUnsubscribe = null;
@@ -29,34 +29,71 @@ let isSelectMode = false;
 let selectedJobIds = new Set();
 let eventListenersAttached = false;
 let clockInterval;
-
-// UI Selectors
-const filterControls = document.getElementById('filter-controls');
-const stateFilter = document.getElementById('state-filter'), typeFilter = document.getElementById('type-filter'), statusFilter = document.getElementById('status-filter'), sortByFilter = document.getElementById('sort-by-filter'), roleLevelFilter = document.getElementById('role-level-filter');
-const searchBar = document.getElementById('search-bar');
-const applicationDetailForm = document.getElementById('application-detail-form');
-const experienceDetailForm = document.getElementById('experience-detail-form');
-const calendarEl = document.getElementById('calendar');
 let calendar;
-
-const closedStatuses = ['Closed', 'Offer Declined', 'Unsuccessful'];
-const statusOptions = ['Identified', 'Preparing Application', 'Applied', 'Interview Offered', 'Offer Received', 'Unsuccessful', 'Closed', 'Offer Declined']; 
-const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI']; 
-const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT']; 
-const roleLevelOptions = ['Intern', 'RMO', 'SRMO', 'Registrar', 'Trainee'];
 
 // --- 2. EXPORTED FUNCTIONS for auth.js ---
 
 export function initializeAppForUser(user) {
     currentUser = user;
+    
+    // ** CRITICAL FIX **
+    // All UI selectors are now declared here, ensuring the DOM is loaded.
+    const uiSelectors = {
+        navUserMenu: document.getElementById('nav-user-menu'),
+        userDropdown: document.getElementById('user-dropdown'),
+        mainNavLinks: document.querySelector('.nav-links'),
+        backToDashboardBtn: document.getElementById('back-to-dashboard-btn'),
+        backToExpBookBtn: document.getElementById('back-to-exp-book-btn'),
+        addNewAppBtn: document.getElementById('add-new-application-btn'),
+        jobsTableBody: document.getElementById('jobs-table-body'),
+        cardViewContainer: document.getElementById('card-view-container'),
+        toggleFiltersBtn: document.getElementById('toggle-filters-btn'),
+        stateFilter: document.getElementById('state-filter'),
+        typeFilter: document.getElementById('type-filter'),
+        statusFilter: document.getElementById('status-filter'),
+        sortByFilter: document.getElementById('sort-by-filter'),
+        roleLevelFilter: document.getElementById('role-level-filter'),
+        searchBar: document.getElementById('search-bar'),
+        clearFiltersBtn: document.getElementById('clear-filters-btn'),
+        selectJobsBtn: document.getElementById('select-jobs-btn'),
+        cancelSelectionBtn: document.getElementById('cancel-selection-btn'),
+        deleteSelectedBtn: document.getElementById('delete-selected-btn'),
+        jobsTableHeader: document.querySelector('#table-view-container thead'),
+        applicationDetailForm: document.getElementById('application-detail-form'),
+        deleteAppBtn: document.getElementById('delete-app-btn'),
+        duplicateAppBtn: document.getElementById('duplicate-app-btn'),
+        tabSwitcher: document.getElementById('applicationDetailPage').querySelector('.tab-switcher'),
+        jobIdInput: document.getElementById('detail-job-id'),
+        uploadOfficialDocBtn: document.getElementById('upload-official-doc-btn'),
+        officialDocFileInput: document.getElementById('official-doc-file-input'),
+        attachFromRepoBtn: document.getElementById('attach-from-repo-btn'),
+        addNewExperienceBtn: document.getElementById('add-new-experience-btn'),
+        experienceSearchBar: document.getElementById('experience-search-bar'),
+        experienceTagFilters: document.getElementById('experience-tag-filters'),
+        experienceCardsContainer: document.getElementById('experience-cards-container'),
+        experienceDetailForm: document.getElementById('experience-detail-form'),
+        deleteExpBtn: document.getElementById('delete-exp-btn'),
+        saveProfileBtn: document.getElementById('save-profile-btn'),
+        updatePasswordBtn: document.getElementById('update-password-btn'),
+        profileImageUploadBtn: document.getElementById('profile-image-upload-btn'),
+        profileImageUpload: document.getElementById('profile-image-upload'),
+        masterDocBrowseBtn: document.getElementById('master-doc-browse-btn'),
+        masterDocFileInput: document.getElementById('master-doc-file-input'),
+        masterDocsList: document.getElementById('master-docs-list'),
+        deleteModalConfirmBtn: document.getElementById('delete-modal-confirm-btn'),
+        attachDocCloseBtn: document.getElementById('attach-document-close-btn'),
+        attachDocList: document.getElementById('attach-document-list'),
+        logoutBtn: document.getElementById('logout-btn')
+    };
+
     attachFirestoreListeners(user.uid);
     if (!eventListenersAttached) {
-        attachMainAppEventListeners();
+        attachMainAppEventListeners(uiSelectors);
         eventListenersAttached = true;
     }
     initializeCalendar();
     if(clockInterval) clearInterval(clockInterval);
-    clockInterval = setInterval(updateClock, 1000);
+    clockInterval = setInterval(ui.updateClock, 1000);
     ui.navigateToPage('dashboard');
 }
 
@@ -64,10 +101,12 @@ export function cleanupAfterLogout() {
     if (jobsUnsubscribe) jobsUnsubscribe();
     if (experiencesUnsubscribe) experiencesUnsubscribe();
     if (documentsUnsubscribe) documentsUnsubscribe();
+    
     localJobsCache = [], localExperiencesCache = [], localDocumentsCache = [];
     userProfileData = {};
     document.getElementById('jobs-table-body').innerHTML = '';
     document.getElementById('card-view-container').innerHTML = '';
+    
     if (clockInterval) clearInterval(clockInterval);
 }
 
@@ -105,6 +144,7 @@ function attachFirestoreListeners(userId) {
 }
 
 function initializeCalendar() {
+    const calendarEl = document.getElementById('calendar');
     if (calendarEl && !calendar) {
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
@@ -112,10 +152,7 @@ function initializeCalendar() {
             events: [],
             eventClick: (info) => {
                 const jobId = info.event.extendedProps.jobId;
-                const job = localJobsCache.find(j => j.id === jobId);
-                if (job) {
-                    handleViewJob(jobId);
-                }
+                handleViewJob(jobId);
             }
         });
     }
@@ -123,54 +160,52 @@ function initializeCalendar() {
 
 // --- 4. EVENT LISTENERS ---
 
-function attachMainAppEventListeners() {
-    document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
-    document.querySelector('.nav-links').addEventListener('click', handleNavigation);
-    document.getElementById('user-dropdown').addEventListener('click', handleNavigation);
-    document.getElementById('nav-user-menu').addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('user-dropdown').classList.toggle('hidden'); });
-    window.addEventListener('click', () => { if (!document.getElementById('user-dropdown').classList.contains('hidden')) document.getElementById('user-dropdown').classList.add('hidden'); });
+function attachMainAppEventListeners(selectors) {
+    selectors.logoutBtn.addEventListener('click', () => signOut(auth));
+    selectors.mainNavLinks.addEventListener('click', handleNavigation);
+    selectors.userDropdown.addEventListener('click', handleNavigation);
+    selectors.navUserMenu.addEventListener('click', (e) => { e.stopPropagation(); selectors.userDropdown.classList.toggle('hidden'); });
+    window.addEventListener('click', () => { if (!selectors.userDropdown.classList.contains('hidden')) selectors.userDropdown.classList.add('hidden'); });
     
-    document.getElementById('back-to-dashboard-btn').addEventListener('click', () => ui.navigateToPage('dashboard'));
-    document.getElementById('back-to-exp-book-btn').addEventListener('click', () => ui.navigateToPage('experienceBook'));
+    selectors.backToDashboardBtn.addEventListener('click', () => ui.navigateToPage('dashboard'));
+    selectors.backToExpBookBtn.addEventListener('click', () => ui.navigateToPage('experienceBook'));
     
-    document.getElementById('add-new-application-btn').addEventListener('click', handleAddNewApplication);
-    document.getElementById('jobs-table-body').addEventListener('click', handleJobsTableClick);
-    document.getElementById('card-view-container').addEventListener('click', handleJobsTableClick);
-    document.getElementById('toggle-filters-btn').addEventListener('click', handleToggleFilters);
-    [stateFilter, typeFilter, statusFilter, sortByFilter, roleLevelFilter].forEach(el => el.addEventListener('change', handleFilterChange));
-    searchBar.addEventListener('input', () => { currentFilters.search = searchBar.value; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar); });
-    document.getElementById('clear-filters-btn').addEventListener('click', handleClearFilters);
-    document.getElementById('select-jobs-btn').addEventListener('click', enterSelectMode);
-    document.getElementById('cancel-selection-btn').addEventListener('click', exitSelectMode);
-    document.getElementById('delete-selected-btn').addEventListener('click', handleDeleteSelected);
-    jobsTableHeader.addEventListener('change', handleSelectAll);
+    selectors.addNewAppBtn.addEventListener('click', handleAddNewApplication);
+    selectors.jobsTableBody.addEventListener('click', handleJobsTableClick);
+    selectors.cardViewContainer.addEventListener('click', handleJobsTableClick);
+    selectors.toggleFiltersBtn.addEventListener('click', handleToggleFilters);
+    [selectors.stateFilter, selectors.typeFilter, selectors.statusFilter, selectors.sortByFilter, selectors.roleLevelFilter].forEach(el => el.addEventListener('change', handleFilterChange));
+    selectors.searchBar.addEventListener('input', () => { currentFilters.search = selectors.searchBar.value; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar); });
+    selectors.clearFiltersBtn.addEventListener('click', handleClearFilters);
+    selectors.selectJobsBtn.addEventListener('click', enterSelectMode);
+    selectors.cancelSelectionBtn.addEventListener('click', exitSelectMode);
+    selectors.deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
+    selectors.jobsTableHeader.addEventListener('change', handleSelectAll);
 
-    applicationDetailForm.addEventListener('submit', handleSaveApplication);
-    document.getElementById('delete-app-btn').addEventListener('click', handleDeleteApplication);
-    document.getElementById('duplicate-app-btn').addEventListener('click', handleDuplicateApplication);
-    document.getElementById('applicationDetailPage').querySelector('.tab-switcher').addEventListener('click', handleTabSwitch);
-    document.getElementById('detail-job-id').addEventListener('input', checkJobIdUniqueness);
-    document.getElementById('upload-official-doc-btn').addEventListener('click', () => document.getElementById('official-doc-file-input').click());
-    document.getElementById('official-doc-file-input').addEventListener('change', handleOfficialDocUpload);
-    document.getElementById('attach-from-repo-btn').addEventListener('click', handleAttachFromRepo);
+    selectors.applicationDetailForm.addEventListener('submit', handleSaveApplication);
+    selectors.deleteAppBtn.addEventListener('click', handleDeleteApplication);
+    selectors.duplicateAppBtn.addEventListener('click', handleDuplicateApplication);
+    selectors.tabSwitcher.addEventListener('click', handleTabSwitch);
+    selectors.jobIdInput.addEventListener('input', checkJobIdUniqueness);
+    selectors.uploadOfficialDocBtn.addEventListener('click', () => selectors.officialDocFileInput.click());
+    selectors.officialDocFileInput.addEventListener('change', handleOfficialDocUpload);
+    selectors.attachFromRepoBtn.addEventListener('click', handleAttachFromRepo);
     
-    document.getElementById('add-new-experience-btn').addEventListener('click', () => handleAddNewExperience());
-    document.getElementById('experience-search-bar').addEventListener('input', () => ui.renderExperienceBook(localExperiencesCache, activeExperienceTags));
+    selectors.addNewExperienceBtn.addEventListener('click', () => handleAddNewExperience());
+    selectors.experienceSearchBar.addEventListener('input', () => ui.renderExperienceBook(localExperiencesCache, activeExperienceTags));
     document.getElementById('experience-tag-filters').addEventListener('click', handleTagFilterClick);
     document.getElementById('experience-cards-container').addEventListener('click', handleExperienceCardClick);
-    experienceDetailForm.addEventListener('submit', handleSaveExperience);
+    selectors.experienceDetailForm.addEventListener('submit', handleSaveExperience);
     document.getElementById('delete-exp-btn').addEventListener('click', handleDeleteExperience);
     
-    document.getElementById('save-profile-btn').addEventListener('click', handleSaveProfile);
-    document.getElementById('update-password-btn').addEventListener('click', handleUpdatePassword);
-    document.getElementById('profile-image-upload-btn').addEventListener('click', () => document.getElementById('profile-image-upload').click());
-    document.getElementById('profile-image-upload').addEventListener('change', handleProfileImageUpload);
-    document.getElementById('master-doc-browse-btn').addEventListener('click', () => document.getElementById('master-doc-file-input').click());
-    document.getElementById('master-doc-file-input').addEventListener('change', handleMasterDocumentUpload);
-    masterDocsList.addEventListener('click', handleDeleteMasterDoc);
+    selectors.saveProfileBtn.addEventListener('click', handleSaveProfile);
+    selectors.updatePasswordBtn.addEventListener('click', handleUpdatePassword);
+    selectors.profileImageUploadBtn.addEventListener('click', () => selectors.profileImageUpload.click());
+    selectors.profileImageUpload.addEventListener('change', handleProfileImageUpload);
+    selectors.masterDocBrowseBtn.addEventListener('click', () => selectors.masterDocFileInput.click());
+    selectors.masterDocFileInput.addEventListener('change', handleMasterDocumentUpload);
+    selectors.masterDocsList.addEventListener('click', handleDeleteMasterDoc);
 
-    document.getElementById('delete-modal-close-btn').addEventListener('click', ui.hideDeleteModal);
-    document.getElementById('delete-modal-cancel-btn').addEventListener('click', ui.hideDeleteModal);
     document.getElementById('delete-modal-confirm-btn').addEventListener('click', executeDeleteSelected);
     document.getElementById('attach-document-close-btn').addEventListener('click', ui.hideAttachDocModal);
     document.getElementById('attach-document-list').addEventListener('click', handleAttachDocSelect);
@@ -188,6 +223,8 @@ function handleNavigation(e) {
 
 function handleAddNewApplication() {
     currentJobId = null;
+    stagedDocuments = [];
+    stagedCriteria = [];
     ui.populateApplicationDetailPage({}, stateOptions, typeOptions, roleLevelOptions);
     ui.navigateToPage('applicationDetailPage');
 }
@@ -437,13 +474,26 @@ function handleTagFilterClick(e) {
 function enterSelectMode() { isSelectMode = true; selectionActionBar.classList.remove('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds); }
 function exitSelectMode() { isSelectMode = false; selectedJobIds.clear(); updateSelectionCount(); selectionActionBar.classList.add('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds); }
 function updateSelectionCount() { document.getElementById('selected-count').textContent = selectedJobIds.size; }
-function handleSelectionChange(jobId, isChecked) { if (isChecked) selectedJobIds.add(jobId); else selectedJobIds.delete(jobId); updateSelectionCount(); const row = jobsTableBody.querySelector(`tr[data-job-id="${jobId}"]`); if (row) row.classList.toggle('selected-row', isChecked); }
+function handleSelectionChange(jobId, isChecked) { if (isChecked) selectedJobIds.add(jobId); else selectedJobIds.delete(jobId); updateSelectionCount(); const row = document.querySelector(`#jobs-table-body tr[data-job-id="${jobId}"]`); if (row) row.classList.toggle('selected-row', isChecked); }
 function handleDeleteSelected() { if (selectedJobIds.size > 0) ui.showDeleteModal(selectedJobIds.size); }
 async function executeDeleteSelected() { if (!currentUser || selectedJobIds.size === 0) return; try { await api.deleteMultipleJobs(currentUser.uid, selectedJobIds); ui.showToast(`${selectedJobIds.size} job(s) deleted.`, "error"); } catch (error) { ui.showToast("Bulk delete failed.", "error"); } finally { ui.hideDeleteModal(); exitSelectMode(); } }
-function handleSelectAll(e) { if(e.target.id === 'select-all-checkbox') { const isChecked = e.target.checked; ui.sortAndFilterJobs(localJobsCache, currentFilters).forEach(job => handleSelectionChange(job.id, isChecked)); jobsTableBody.querySelectorAll('.row-checkbox').forEach(box => box.checked = isChecked); } }
-function handleAttachFromRepo() { ui.populateAttachDocModal(localDocumentsCache); ui.showAttachDocModal(); }
-function handleAttachDocSelect(e) { const target = e.target.closest('li'); if(!target) return; const docData = { id: Date.now(), type: 'submitted', name: target.dataset.docName, url: target.dataset.docUrl }; stagedDocuments.push(docData); ui.renderDocuments(stagedDocuments); ui.hideAttachDocModal(); }
+function handleSelectAll(e) { if(e.target.id === 'select-all-checkbox') { const isChecked = e.target.checked; ui.sortAndFilterJobs(localJobsCache, currentFilters).forEach(job => handleSelectionChange(job.id, isChecked)); document.getElementById('jobs-table-body').querySelectorAll('.row-checkbox').forEach(box => box.checked = isChecked); } }
 
-// --- 6. HELPER FUNCTIONS ---
-function updateClock() { try { const now = new Date(); const timeString = now.toLocaleTimeString('en-US', { timeZone: timeZoneSelector.value, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); const dateString = now.toLocaleDateString('en-GB', { timeZone: timeZoneSelector.value, weekday: 'short', day: 'numeric', month: 'short' }); currentTimeDisplay.textContent = `${dateString}, ${timeString}`; } catch (e) { currentTimeDisplay.textContent = "Invalid Timezone"; } }
-});
+function handleAttachFromRepo() {
+    ui.populateAttachDocModal(localDocumentsCache);
+    ui.showAttachDocModal();
+}
+
+function handleAttachDocSelect(e) {
+    const target = e.target.closest('li');
+    if(!target) return;
+    const docData = {
+        id: Date.now(),
+        type: 'submitted',
+        name: target.dataset.docName,
+        url: target.dataset.docUrl
+    };
+    stagedDocuments.push(docData);
+    ui.renderDocuments(stagedDocuments);
+    ui.hideAttachDocModal();
+}```
