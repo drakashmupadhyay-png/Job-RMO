@@ -105,6 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdAt: Timestamp.now()
             });
 
+            await signOut(auth); // Sign out immediately after signup
+
             // Redirect to login on successful signup
             signupForm.reset();
             signupForm.classList.add('hidden');
