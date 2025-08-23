@@ -1,32 +1,46 @@
 "use strict";
 
-// --- IMPORTS ---
-import { auth, db, storage } from './firebase-config.js';
-import { signOut, updateProfile, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+// --- 0. IMPORTS ---
+import { auth, db } from './firebase-config.js';
+import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { collection, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import * as api from './api.js';
 import * as ui from './ui.js';
 
-// --- STATE MANAGEMENT ---
+// --- 1. GLOBAL STATE (SAFE TO DECLARE HERE) ---
 let currentUser = null;
 let userProfileData = {};
-let jobsUnsubscribe = null, experiencesUnsubscribe = null, documentsUnsubscribe = null;
-let localJobsCache = [], localExperiencesCache = [], localDocumentsCache = [];
-let currentJobId = null, currentExperienceId = null;
-let stagedDocuments = [], stagedCriteria = [];
+let jobsUnsubscribe = null;
+let experiencesUnsubscribe = null;
+let documentsUnsubscribe = null;
+
+let localJobsCache = [];
+let localExperiencesCache = [];
+let localDocumentsCache = [];
+
+let currentJobId = null;
+let currentExperienceId = null;
+let stagedDocuments = []; 
+let stagedCriteria = [];
 let currentFilters = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default', roleLevel: 'all' };
 let activeExperienceTags = [];
-let isSelectMode = false, selectedJobIds = new Set();
+let isSelectMode = false; 
+let selectedJobIds = new Set();
 let eventListenersAttached = false;
 let clockInterval;
 let calendar;
 
-// --- EXPORTED FUNCTIONS (Called by auth.js) ---
+const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'];
+const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI'];
+const roleLevelOptions = ['Intern', 'RMO', 'SRMO', 'Registrar', 'Trainee'];
+const statusOptions = ['Identified', 'Preparing Application', 'Applied', 'Interview Offered', 'Offer Received', 'Unsuccessful', 'Closed', 'Offer Declined'];
+
+// --- 2. EXPORTED FUNCTIONS for auth.js ---
 
 export function initializeMainApp(user) {
     currentUser = user;
     
-    // All UI selectors are now declared here, safely after the DOM has loaded.
+    // All UI selectors are now declared here, ensuring the DOM is loaded.
     const uiSelectors = {
         navUserMenu: document.getElementById('nav-user-menu'),
         userDropdown: document.getElementById('user-dropdown'),
@@ -36,11 +50,16 @@ export function initializeMainApp(user) {
         addNewAppBtn: document.getElementById('add-new-application-btn'),
         jobsTableBody: document.getElementById('jobs-table-body'),
         cardViewContainer: document.getElementById('card-view-container'),
+        calendarViewContainer: document.getElementById('calendar-view-container'),
         toggleFiltersBtn: document.getElementById('toggle-filters-btn'),
-        stateFilter: document.getElementById('state-filter'), typeFilter: document.getElementById('type-filter'),
-        statusFilter: document.getElementById('status-filter'), sortByFilter: document.getElementById('sort-by-filter'),
-        roleLevelFilter: document.getElementById('role-level-filter'), searchBar: document.getElementById('search-bar'),
+        stateFilter: document.getElementById('state-filter'),
+        typeFilter: document.getElementById('type-filter'),
+        statusFilter: document.getElementById('status-filter'),
+        sortByFilter: document.getElementById('sort-by-filter'),
+        roleLevelFilter: document.getElementById('role-level-filter'),
+        searchBar: document.getElementById('search-bar'),
         clearFiltersBtn: document.getElementById('clear-filters-btn'),
+        filterControls: document.getElementById('filter-controls'),
         selectJobsBtn: document.getElementById('select-jobs-btn'),
         cancelSelectionBtn: document.getElementById('cancel-selection-btn'),
         deleteSelectedBtn: document.getElementById('delete-selected-btn'),
@@ -59,6 +78,7 @@ export function initializeMainApp(user) {
         experienceCardsContainer: document.getElementById('experience-cards-container'),
         experienceDetailForm: document.getElementById('experience-detail-form'),
         deleteExpBtn: document.getElementById('delete-exp-btn'),
+        copyExpBtn: document.getElementById('copy-exp-btn'),
         saveProfileBtn: document.getElementById('save-profile-btn'),
         updatePasswordBtn: document.getElementById('update-password-btn'),
         profileImageUploadBtn: document.getElementById('profile-image-upload-btn'),
@@ -67,8 +87,11 @@ export function initializeMainApp(user) {
         masterDocFileInput: document.getElementById('master-doc-file-input'),
         masterDocsList: document.getElementById('master-docs-list'),
         deleteModalConfirmBtn: document.getElementById('delete-modal-confirm-btn'),
+        deleteModalCloseBtn: document.getElementById('delete-modal-close-btn'),
+        deleteModalCancelBtn: document.getElementById('delete-modal-cancel-btn'),
         attachDocCloseBtn: document.getElementById('attach-document-close-btn'),
         attachDocList: document.getElementById('attach-document-list'),
+        linkExperienceCloseBtn: document.getElementById('link-experience-close-btn'),
         logoutBtn: document.getElementById('logout-btn')
     };
 
@@ -87,14 +110,17 @@ export function cleanupMainApp() {
     if (jobsUnsubscribe) jobsUnsubscribe();
     if (experiencesUnsubscribe) experiencesUnsubscribe();
     if (documentsUnsubscribe) documentsUnsubscribe();
+    
     localJobsCache = [], localExperiencesCache = [], localDocumentsCache = [];
     userProfileData = {};
     document.getElementById('jobs-table-body').innerHTML = '';
     document.getElementById('card-view-container').innerHTML = '';
+    
     if (clockInterval) clearInterval(clockInterval);
 }
 
-// --- FIRESTORE LISTENERS ---
+// --- 3. FIRESTORE & STATE MANAGEMENT ---
+
 function attachFirestoreListeners(userId) {
     onSnapshot(doc(db, "users", userId), (doc) => {
         if (doc.exists()) {
@@ -108,17 +134,22 @@ function attachFirestoreListeners(userId) {
             const data = doc.data();
             return { ...data, id: doc.id, closingDate: data.closingDate?.toDate(), dateApplied: data.dateApplied?.toDate(), followUpDate: data.followUpDate?.toDate(), interviewDate: data.interviewDate?.toDate(), createdAt: data.createdAt?.toDate() };
         });
-        ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar);
+        const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') };
+        ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors);
     });
     const experiencesRef = collection(db, `users/${userId}/experiences`);
     experiencesUnsubscribe = onSnapshot(query(experiencesRef, orderBy("createdAt", "desc")), (snapshot) => {
         localExperiencesCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        if (document.getElementById('experienceBook') && !document.getElementById('experienceBook').classList.contains('hidden')) ui.renderExperienceBook(localExperiencesCache, activeExperienceTags);
+        if (document.getElementById('experienceBook') && !document.getElementById('experienceBook').classList.contains('hidden')) {
+            ui.renderExperienceBook(localExperiencesCache, activeExperienceTags);
+        }
     });
     const documentsRef = collection(db, `users/${userId}/documents`);
     documentsUnsubscribe = onSnapshot(query(documentsRef, orderBy("uploadedAt", "desc")), (snapshot) => {
         localDocumentsCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        if (document.getElementById('documents') && !document.getElementById('documents').classList.contains('hidden')) ui.renderMasterDocuments(localDocumentsCache);
+        if (document.getElementById('documents') && !document.getElementById('documents').classList.contains('hidden')) {
+            ui.renderMasterDocuments(localDocumentsCache);
+        }
     });
 }
 
@@ -137,7 +168,8 @@ function initializeCalendar() {
     }
 }
 
-// --- EVENT LISTENER ATTACHMENT ---
+// --- 4. EVENT LISTENERS ---
+
 function attachMainAppEventListeners(selectors) {
     selectors.logoutBtn.addEventListener('click', () => signOut(auth));
     selectors.mainNavLinks.addEventListener('click', handleNavigation);
@@ -153,7 +185,7 @@ function attachMainAppEventListeners(selectors) {
     selectors.cardViewContainer.addEventListener('click', handleJobsTableClick);
     selectors.toggleFiltersBtn.addEventListener('click', handleToggleFilters);
     [selectors.stateFilter, selectors.typeFilter, selectors.statusFilter, selectors.sortByFilter, selectors.roleLevelFilter].forEach(el => el.addEventListener('change', handleFilterChange));
-    selectors.searchBar.addEventListener('input', () => { currentFilters.search = selectors.searchBar.value; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar); });
+    selectors.searchBar.addEventListener('input', () => { currentFilters.search = selectors.searchBar.value; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, selectors); });
     selectors.clearFiltersBtn.addEventListener('click', handleClearFilters);
     selectors.selectJobsBtn.addEventListener('click', enterSelectMode);
     selectors.cancelSelectionBtn.addEventListener('click', exitSelectMode);
@@ -168,13 +200,16 @@ function attachMainAppEventListeners(selectors) {
     selectors.uploadOfficialDocBtn.addEventListener('click', () => selectors.officialDocFileInput.click());
     selectors.officialDocFileInput.addEventListener('change', handleOfficialDocUpload);
     selectors.attachFromRepoBtn.addEventListener('click', handleAttachFromRepo);
+    document.getElementById('add-criterion-btn').addEventListener('click', handleAddCriterion);
+    document.getElementById('selection-criteria-workbench').addEventListener('click', handleWorkbenchClick);
     
     selectors.addNewExperienceBtn.addEventListener('click', () => handleAddNewExperience());
     selectors.experienceSearchBar.addEventListener('input', () => ui.renderExperienceBook(localExperiencesCache, activeExperienceTags));
-    document.getElementById('experience-tag-filters').addEventListener('click', handleTagFilterClick);
-    document.getElementById('experience-cards-container').addEventListener('click', handleExperienceCardClick);
+    selectors.experienceTagFilters.addEventListener('click', handleTagFilterClick);
+    selectors.experienceCardsContainer.addEventListener('click', handleExperienceCardClick);
     selectors.experienceDetailForm.addEventListener('submit', handleSaveExperience);
-    document.getElementById('delete-exp-btn').addEventListener('click', handleDeleteExperience);
+    selectors.deleteExpBtn.addEventListener('click', handleDeleteExperience);
+    document.getElementById('copy-exp-btn').addEventListener('click', handleCopyExperience);
     
     selectors.saveProfileBtn.addEventListener('click', handleSaveProfile);
     selectors.updatePasswordBtn.addEventListener('click', handleUpdatePassword);
@@ -184,57 +219,78 @@ function attachMainAppEventListeners(selectors) {
     selectors.masterDocFileInput.addEventListener('change', handleMasterDocumentUpload);
     selectors.masterDocsList.addEventListener('click', handleDeleteMasterDoc);
 
-    document.getElementById('delete-modal-confirm-btn').addEventListener('click', executeDeleteSelected);
-    document.getElementById('attach-document-close-btn').addEventListener('click', ui.hideAttachDocModal);
-    document.getElementById('attach-document-list').addEventListener('click', handleAttachDocSelect);
+    selectors.deleteModalCloseBtn.addEventListener('click', ui.hideDeleteModal);
+    selectors.deleteModalCancelBtn.addEventListener('click', ui.hideDeleteModal);
+    selectors.deleteModalConfirmBtn.addEventListener('click', executeDeleteSelected);
+    selectors.attachDocCloseBtn.addEventListener('click', ui.hideAttachDocModal);
+    selectors.attachDocList.addEventListener('click', handleAttachDocSelect);
+    document.getElementById('link-experience-close-btn').addEventListener('click', ui.hideLinkExperienceModal);
+    document.getElementById('link-experience-search').addEventListener('input', () => ui.populateLinkExperienceModal(localExperiencesCache));
+    document.getElementById('link-experience-list').addEventListener('click', handleLinkExperienceSelect);
 }
 
-// --- EVENT HANDLERS ---
-function handleNavigation(e) { e.preventDefault(); const link = e.target.closest('a'); if (link && link.href.includes('#')) ui.navigateToPage(link.getAttribute('href').substring(1)); }
+// --- 5. EVENT HANDLERS ---
+
+function handleNavigation(e) { 
+    e.preventDefault(); 
+    const link = e.target.closest('a'); 
+    if (link && link.href.includes('#')) {
+        ui.navigateToPage(link.getAttribute('href').substring(1)); 
+    }
+}
+
 function handleAddNewApplication() {
-    currentJobId = null; stagedDocuments = []; stagedCriteria = [];
-    const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'];
-    const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI'];
-    const roleLevelOptions = ['Intern', 'RMO', 'SRMO', 'Registrar', 'Trainee'];
+    currentJobId = null;
+    stagedDocuments = [];
+    stagedCriteria = [];
     ui.populateApplicationDetailPage({}, stateOptions, typeOptions, roleLevelOptions);
     ui.navigateToPage('applicationDetailPage');
 }
+
 function handleJobsTableClick(e) {
     const target = e.target.closest('button.action-btn, tr, .job-card');
     if (!target) return;
     const jobId = target.dataset.jobId;
+
     if (isSelectMode && target.tagName === 'TR') {
         const checkbox = target.querySelector('.row-checkbox');
         if (checkbox) {
             if (e.target.tagName !== 'INPUT') checkbox.checked = !checkbox.checked;
             handleSelectionChange(jobId, checkbox.checked);
         }
-    } else if (target.classList.contains('view-btn') || target.classList.contains('job-card')) handleViewJob(jobId);
-    else if (target.classList.contains('duplicate-btn')) handleDuplicateApplication(jobId);
-    else if (target.classList.contains('delete-btn')) handleDeleteApplication(jobId);
+    } else if (target.classList.contains('view-btn') || target.classList.contains('job-card')) {
+        handleViewJob(jobId);
+    } else if (target.classList.contains('duplicate-btn')) {
+        handleDuplicateApplication(jobId);
+    } else if (target.classList.contains('delete-btn')) {
+        handleDeleteApplication(jobId);
+    }
 }
+
 function handleViewJob(jobId) {
     const job = localJobsCache.find(j => j.id === jobId);
     if (job) {
-        currentJobId = job.id; stagedDocuments = job.documents || []; stagedCriteria = job.jobSelectionCriteria || [];
-        const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'];
-        const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI'];
-        const roleLevelOptions = ['Intern', 'RMO', 'SRMO', 'Registrar', 'Trainee'];
+        currentJobId = job.id;
+        stagedDocuments = job.documents || [];
+        stagedCriteria = job.jobSelectionCriteria || [];
         ui.populateApplicationDetailPage(job, stateOptions, typeOptions, roleLevelOptions);
         ui.navigateToPage('applicationDetailPage');
     }
 }
+
 async function handleSaveApplication(e) {
     e.preventDefault();
     if (!currentUser) return ui.showToast("Authentication error", "error");
     
     stagedCriteria = Array.from(document.getElementById('selection-criteria-workbench').querySelectorAll('.workbench-item')).map(item => ({
-        criterion: item.querySelector('.workbench-criterion').textContent, response: item.querySelector('textarea').value
+        criterion: item.querySelector('.workbench-criterion').textContent,
+        response: item.querySelector('textarea').value
     }));
 
     const getValue = id => document.getElementById(id).value;
     const getText = id => document.getElementById(id).textContent;
     const getChecked = id => document.getElementById(id).checked;
+
     const jobData = {
         jobTitle: getText('detail-job-title'), hospital: getText('detail-hospital'), healthNetwork: getText('detail-health-network'), sourceUrl: getText('detail-source-url'), location: getText('detail-location'), state: getValue('detail-state'), jobId: getText('detail-job-id').trim(), applicationType: getValue('detail-application-type'), portal: getText('detail-portal'), specialty: getText('detail-specialty'), roleLevel: getValue('detail-role-level'), contactPerson: getText('detail-contact-person'), contactEmail: getText('detail-contact-email'), contactPhone: getText('detail-contact-phone'), jobDetailNotes: getValue('detail-job-notes'), status: getValue('detail-status'), followUpComplete: getChecked('detail-follow-up-complete'), interviewType: getValue('detail-interview-type'), thankYouSent: getChecked('detail-thank-you-sent'), jobTrackerNotes: getValue('detail-tracker-notes'), 
         closingDate: getValue('detail-closing-date') ? Timestamp.fromDate(new Date(getValue('detail-closing-date'))) : null, 
@@ -242,76 +298,280 @@ async function handleSaveApplication(e) {
         dateApplied: getValue('detail-date-applied') ? Timestamp.fromDate(new Date(getValue('detail-date-applied'))) : null, 
         followUpDate: getValue('detail-follow-up-date') ? Timestamp.fromDate(new Date(getValue('detail-follow-up-date'))) : null, 
         interviewDate: getValue('detail-interview-date') ? Timestamp.fromDate(new Date(getValue('detail-interview-date'))) : null,
-        jobSelectionCriteria: stagedCriteria, documents: stagedDocuments
+        jobSelectionCriteria: stagedCriteria,
+        documents: stagedDocuments
     };
 
     try {
         await api.saveJob(currentUser.uid, jobData, currentJobId);
         ui.showToast(currentJobId ? "Application updated!" : "Application added!");
         ui.navigateToPage('dashboard');
-    } catch (error) { ui.showToast("Could not save application", "error"); }
+    } catch (error) {
+        console.error("Error saving application: ", error);
+        ui.showToast("Could not save application", "error");
+    }
 }
+
 async function handleDeleteApplication(jobId) {
     const idToDelete = jobId || currentJobId;
-    if (idToDelete && confirm("Are you sure?")) {
+    if (idToDelete && confirm("Are you sure you want to permanently delete this application?")) {
         try {
             await api.deleteJob(currentUser.uid, idToDelete);
             ui.showToast("Application deleted", "error");
             if (idToDelete === currentJobId) ui.navigateToPage('dashboard');
-        } catch (error) { ui.showToast("Deletion failed", "error"); }
+        } catch (error) {
+            ui.showToast("Deletion failed", "error");
+        }
     }
 }
+
 function handleDuplicateApplication(jobId) {
     const idToDup = jobId || currentJobId;
     const originalJob = localJobsCache.find(j => j.id === idToDup);
     if (!originalJob) return;
     const newJob = JSON.parse(JSON.stringify(originalJob));
-    newJob.id = null; newJob.jobTitle = `${originalJob.jobTitle} (Copy)`; newJob.jobId = ''; newJob.status = 'Identified'; newJob.dateApplied = null; newJob.closingDate = null;
-    currentJobId = null; stagedDocuments = newJob.documents || []; stagedCriteria = newJob.jobSelectionCriteria || [];
+    delete newJob.id; // Ensure it's treated as a new document
+    newJob.jobTitle = `${originalJob.jobTitle} (Copy)`;
+    newJob.jobId = '';
+    newJob.status = 'Identified';
+    newJob.dateApplied = null;
+    newJob.closingDate = null;
+    currentJobId = null;
+    stagedDocuments = newJob.documents || [];
+    stagedCriteria = newJob.jobSelectionCriteria || [];
     ui.populateApplicationDetailPage(newJob, stateOptions, typeOptions, roleLevelOptions);
     ui.navigateToPage('applicationDetailPage');
-    ui.showToast('Application duplicated.');
+    ui.showToast('Application duplicated. Editing the new copy.');
 }
-function handleAddNewExperience() { currentExperienceId = null; ui.populateExperienceDetailPage(null); }
+
+function handleAddNewExperience() {
+    currentExperienceId = null;
+    ui.populateExperienceDetailPage(null);
+}
+
 async function handleExperienceCardClick(e) {
-    const card = e.target.closest('.experience-card'); if (!card) return;
+    const card = e.target.closest('.experience-card');
+    if (!card) return;
     const favoriteButton = e.target.closest('.favorite-toggle');
     const expId = card.dataset.experienceId;
     if (favoriteButton) {
-        const exp = localExperiencesCache.find(e => e.id === expId);
-        if (exp) await api.toggleExperienceFavorite(currentUser.uid, expId, exp.isFavorite);
+        const experience = localExperiencesCache.find(exp => exp.id === expId);
+        if (experience) {
+            try {
+                await api.toggleExperienceFavorite(currentUser.uid, expId, experience.isFavorite);
+            } catch (error) {
+                ui.showToast("Could not update favorite status", "error");
+            }
+        }
     } else {
-        const exp = localExperiencesCache.find(e => e.id === expId);
-        if (exp) { currentExperienceId = exp.id; ui.populateExperienceDetailPage(exp); }
+        const experience = localExperiencesCache.find(exp => exp.id === expId);
+        if (experience) {
+            currentExperienceId = experience.id;
+            ui.populateExperienceDetailPage(experience);
+        }
     }
 }
+
 async function handleSaveExperience(e) {
     e.preventDefault();
-    const expData = { title: document.getElementById('exp-title').textContent, paragraph: document.getElementById('exp-paragraph').value, tags: document.getElementById('exp-tags').value.split(',').map(t => t.trim()).filter(Boolean) };
-    try { await api.saveExperience(currentUser.uid, expData, currentExperienceId); ui.showToast(currentExperienceId ? "Experience updated!" : "Experience saved!"); ui.navigateToPage('experienceBook'); }
-    catch(error){ ui.showToast("Save failed", "error");}
+    const expData = {
+        title: document.getElementById('exp-title').textContent,
+        paragraph: document.getElementById('exp-paragraph').value,
+        tags: document.getElementById('exp-tags').value.split(',').map(t => t.trim()).filter(Boolean)
+    };
+    try {
+        await api.saveExperience(currentUser.uid, expData, currentExperienceId);
+        ui.showToast(currentExperienceId ? "Experience updated!" : "Experience saved!");
+        ui.navigateToPage('experienceBook');
+    } catch(error){
+        ui.showToast("Save failed", "error");
+    }
 }
-async function handleDeleteExperience() { if (currentExperienceId && confirm("Delete experience?")) { try { await api.deleteExperience(currentUser.uid, currentExperienceId); ui.showToast("Experience deleted.", "error"); ui.navigateToPage('experienceBook'); } catch(error) { ui.showToast("Deletion failed", "error"); }} }
-async function handleSaveProfile() { if (!currentUser) return; try { await api.updateUserProfileName(currentUser, profileFNameInput.value, profileLNameInput.value); ui.showToast("Name updated!"); } catch (error) { ui.showToast("Name update failed", "error"); } }
-async function handleUpdatePassword() { if (!currentUser) return; const newPass = newPasswordInput.value; if (newPass.length < 6) return ui.showToast("Password too short.", "error"); try { await api.updateUserPassword(currentUser, newPass); ui.showToast("Password updated!"); newPasswordInput.value = ''; } catch (error) { ui.showToast("Update failed. Re-login may be required.", "error"); } }
-async function handleProfileImageUpload(e) { const file = e.target.files[0]; if (!file || !currentUser) return; try { await api.uploadProfileImage(currentUser, file, (p) => ui.showToast(`Uploading: ${Math.round(p)}%`)); ui.showToast("Image updated!"); } catch (error) { ui.showToast("Upload failed", "error"); } }
-async function handleMasterDocumentUpload(e) { const file = e.target.files[0]; if (!file || !currentUser) return; try { await api.uploadMasterDocument(currentUser.uid, file); ui.showToast("Document uploaded!"); } catch (error) { ui.showToast("Upload failed", "error"); } }
-async function handleDeleteMasterDoc(e) { if (!e.target.matches('.remove-doc-btn')) return; const docId = e.target.dataset.docId; if (confirm("Delete document?")) { try { const docToDelete = localDocumentsCache.find(d => d.id === docId); await api.deleteMasterDocument(currentUser.uid, docToDelete); ui.showToast("Document deleted", "error"); } catch (error) { ui.showToast("Deletion failed", "error"); } } }
-function handleFilterChange(e) { const key = e.target.id.replace('-filter','').replace('role-level','roleLevel').replace('sort-by','sortBy'); currentFilters[key] = e.target.value; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar); }
-function handleClearFilters() { filterControls.querySelectorAll('select, input').forEach(el => { if (el.id === 'sort-by-filter') el.value = 'default'; else if(el.type === 'search') el.value = ''; else el.value = 'all'; }); currentFilters = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default', roleLevel: 'all' }; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar); }
-function handleTagFilterClick(e) { if (!e.target.matches('.tag-filter-btn')) return; const tag = e.target.dataset.tag; if (tag === 'all') activeExperienceTags = []; else { const index = activeExperienceTags.indexOf(tag); if (index > -1) activeExperienceTags.splice(index, 1); else activeExperienceTags.push(tag); } ui.renderExperienceBook(localExperiencesCache, activeExperienceTags); }
-function enterSelectMode() { isSelectMode = true; document.getElementById('selection-action-bar').classList.remove('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds); }
-function exitSelectMode() { isSelectMode = false; selectedJobIds.clear(); updateSelectionCount(); document.getElementById('selection-action-bar').classList.add('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds); }
+
+async function handleDeleteExperience() {
+    if (currentExperienceId && confirm("Delete this experience?")) {
+        try {
+            await api.deleteExperience(currentUser.uid, currentExperienceId);
+            ui.showToast("Experience deleted.", "error");
+            ui.navigateToPage('experienceBook');
+        } catch(error) {
+            ui.showToast("Deletion failed", "error");
+        }
+    }
+}
+
+function handleCopyExperience() {
+    navigator.clipboard.writeText(document.getElementById('exp-paragraph').value)
+        .then(() => ui.showToast('Response copied to clipboard'))
+        .catch(() => ui.showToast('Could not copy text.', 'error'));
+}
+
+async function handleSaveProfile() {
+    if (!currentUser) return;
+    try {
+        await api.updateUserProfileName(currentUser, profileFNameInput.value, profileLNameInput.value);
+        ui.showToast("Name updated!");
+    } catch (error) {
+        ui.showToast("Name update failed", "error");
+    }
+}
+
+async function handleUpdatePassword() {
+    if (!currentUser) return;
+    const newPass = newPasswordInput.value;
+    if (newPass.length < 6) return ui.showToast("Password must be at least 6 characters.", "error");
+    try {
+        await api.updateUserPassword(currentUser, newPass);
+        ui.showToast("Password updated successfully!");
+        newPasswordInput.value = '';
+    } catch (error) {
+        ui.showToast("Update failed. Re-login may be required.", "error");
+    }
+}
+
+async function handleProfileImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    try {
+        await api.uploadProfileImage(currentUser, file, (progress) => {
+            ui.showToast(`Uploading: ${Math.round(progress)}%`);
+        });
+        ui.showToast("Profile image updated!");
+    } catch (error) {
+        ui.showToast("Upload failed", "error");
+    }
+}
+
+async function handleMasterDocumentUpload(e) {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    try {
+        await api.uploadMasterDocument(currentUser.uid, file);
+        ui.showToast("Document uploaded!");
+    } catch (error) {
+        ui.showToast("Upload failed", "error");
+    }
+}
+
+async function handleDeleteMasterDoc(e) {
+    if (!e.target.matches('.remove-doc-btn')) return;
+    const docId = e.target.dataset.docId;
+    if (confirm(`Permanently delete this document?`)) {
+        try {
+            const docToDelete = localDocumentsCache.find(d => d.id === docId);
+            await api.deleteMasterDocument(currentUser.uid, docToDelete);
+            ui.showToast("Document deleted", "error");
+        } catch (error) {
+            ui.showToast("Deletion failed", "error");
+        }
+    }
+}
+
+function handleFilterChange(e) {
+    const key = e.target.id.replace('-filter','').replace('role-level','roleLevel').replace('sort-by','sortBy');
+    currentFilters[key] = e.target.value;
+    const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') };
+    ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors);
+}
+
+function handleClearFilters() {
+    document.getElementById('filter-controls').querySelectorAll('select, input').forEach(el => {
+        if (el.id === 'sort-by-filter') el.value = 'default';
+        else if(el.type === 'search') el.value = '';
+        else el.value = 'all';
+    });
+    currentFilters = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default', roleLevel: 'all' };
+    const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') };
+    ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors);
+}
+
+function handleTagFilterClick(e) {
+    if (!e.target.matches('.tag-filter-btn')) return;
+    const tag = e.target.dataset.tag;
+    if (tag === 'all') activeExperienceTags = [];
+    else {
+        const index = activeExperienceTags.indexOf(tag);
+        if (index > -1) activeExperienceTags.splice(index, 1);
+        else activeExperienceTags.push(tag);
+    }
+    ui.renderExperienceBook(localExperiencesCache, activeExperienceTags);
+}
+
+function enterSelectMode() { isSelectMode = true; document.getElementById('selection-action-bar').classList.remove('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }); }
+function exitSelectMode() { isSelectMode = false; selectedJobIds.clear(); updateSelectionCount(); document.getElementById('selection-action-bar').classList.add('hidden'); ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }); }
 function updateSelectionCount() { document.getElementById('selected-count').textContent = selectedJobIds.size; }
 function handleSelectionChange(jobId, isChecked) { if (isChecked) selectedJobIds.add(jobId); else selectedJobIds.delete(jobId); updateSelectionCount(); const row = document.querySelector(`#jobs-table-body tr[data-job-id="${jobId}"]`); if (row) row.classList.toggle('selected-row', isChecked); }
 function handleDeleteSelected() { if (selectedJobIds.size > 0) ui.showDeleteModal(selectedJobIds.size); }
 async function executeDeleteSelected() { if (!currentUser || selectedJobIds.size === 0) return; try { await api.deleteMultipleJobs(currentUser.uid, selectedJobIds); ui.showToast(`${selectedJobIds.size} job(s) deleted.`, "error"); } catch (error) { ui.showToast("Bulk delete failed.", "error"); } finally { ui.hideDeleteModal(); exitSelectMode(); } }
 function handleSelectAll(e) { if(e.target.id === 'select-all-checkbox') { const isChecked = e.target.checked; ui.sortAndFilterJobs(localJobsCache, currentFilters).forEach(job => handleSelectionChange(job.id, isChecked)); document.getElementById('jobs-table-body').querySelectorAll('.row-checkbox').forEach(box => box.checked = isChecked); } }
-function handleAttachFromRepo() { ui.populateAttachDocModal(localDocumentsCache); ui.showAttachDocModal(); }
-function handleAttachDocSelect(e) { const target = e.target.closest('li'); if(!target) return; stagedDocuments.push({ id: Date.now(), type: 'submitted', name: target.dataset.docName, url: target.dataset.docUrl }); ui.renderDocuments(stagedDocuments); ui.hideAttachDocModal(); }
-function checkJobIdUniqueness() { /* Stub */ }
-function handleToggleFilters() { filterControls.classList.toggle('collapsed'); }
+
+function handleAttachFromRepo() {
+    ui.populateAttachDocModal(localDocumentsCache);
+    ui.showAttachDocModal();
+}
+
+function handleAttachDocSelect(e) {
+    const target = e.target.closest('li');
+    if(!target) return;
+    const docData = { id: Date.now(), type: 'submitted', name: target.dataset.docName, url: target.dataset.docUrl };
+    stagedDocuments.push(docData);
+    ui.renderDocuments(stagedDocuments);
+    ui.hideAttachDocModal();
+}
+
+function checkJobIdUniqueness() {
+    const jobIdInput = document.getElementById('detail-job-id');
+    const newJobId = jobIdInput.textContent.trim();
+    const newAppType = document.getElementById('detail-application-type').value;
+    const jobIdError = document.getElementById('detail-job-id-error');
+    if (!newJobId) {
+        jobIdError.classList.add('hidden');
+        jobIdInput.classList.remove('input-error');
+        return;
+    }
+    const isDuplicate = localJobsCache.some(j => j.jobId === newJobId && j.applicationType === newAppType && j.id !== currentJobId);
+    jobIdError.classList.toggle('hidden', !isDuplicate);
+    jobIdInput.classList.toggle('input-error', isDuplicate);
+}
+
+function handleToggleFilters() { document.getElementById('filter-controls').classList.toggle('collapsed'); }
 function handleTabSwitch(e) { const btn = e.target.closest('.tab-btn'); if(btn) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden')); btn.classList.add('active'); document.getElementById(btn.dataset.target).classList.remove('hidden'); } }
-function handleOfficialDocUpload(e) { /* Stub */ }
-function handleWorkbenchClick(e) { /* Stub */ }
-function handleAddCriterion() { /* Stub */ }
+
+function handleOfficialDocUpload(e) {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    // For now, we just add it to the staged documents list.
+    // A more robust solution might upload it immediately.
+    stagedDocuments.push({ id: Date.now(), type: 'official', name: file.name, file: file });
+    ui.renderDocuments(stagedDocuments);
+    ui.showToast(`${file.name} staged for upload.`);
+}
+
+function handleWorkbenchClick(e) {
+    const target = e.target;
+    if (target.matches('.link-experience-btn, .link-experience-btn *')) {
+        currentWorkbenchTarget = target.closest('.workbench-item').querySelector('textarea');
+        ui.populateLinkExperienceModal(localExperiencesCache);
+        ui.showLinkExperienceModal();
+    }
+    if (target.matches('.remove-criterion-btn, .remove-criterion-btn *')) {
+        const item = target.closest('.workbench-item');
+        if(confirm("Remove this criterion?")) item.remove();
+    }
+}
+
+function handleAddCriterion() {
+    stagedCriteria.push({ criterion: "New Criterion (click to edit)", response: "" });
+    ui.renderWorkbench(stagedCriteria);
+}
+
+function handleLinkExperienceSelect(e) {
+    const target = e.target.closest('li');
+    if (target && target.dataset.experienceId) {
+        const exp = localExperiencesCache.find(ex => ex.id === target.dataset.experienceId);
+        if (exp && currentWorkbenchTarget) {
+            currentWorkbenchTarget.value = exp.paragraph;
+        }
+        ui.hideLinkExperienceModal();
+    }
+}
