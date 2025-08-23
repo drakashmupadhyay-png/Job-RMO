@@ -431,14 +431,17 @@ async function handleUpdatePassword() {
 
 async function handleProfileImageUpload(e) {
     const file = e.target.files[0];
-    if (!file || !currentUser) return;
+    if (!file || !currentUser) {
+        ui.showToast("You must be logged in to update profile image.", "error");
+        return;
+    }
     try {
         await api.uploadProfileImage(currentUser, file, (progress) => {
             ui.showToast(`Uploading: ${Math.round(progress)}%`);
         });
         ui.showToast("Profile image updated!");
     } catch (error) {
-        ui.showToast("Upload failed", "error");
+        ui.showToast("Upload failed: " + error.message, "error");
     }
 }
 
