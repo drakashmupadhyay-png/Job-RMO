@@ -4,23 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RMO Job-Flow</title>
-    <!-- Main Stylesheet -->
     <link rel="stylesheet" href="style.css">
-    <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    
-    <!-- CRITICAL: FullCalendar Library for the Calendar Feature -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/index.global.min.js'></script>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/main.min.css' rel='stylesheet' />
 </head>
 <body>
 
-    <!-- ====================================================== -->
-    <!-- AUTHENTICATION VIEW (LOGIN & SIGNUP)                   -->
-    <!-- ====================================================== -->
     <div id="auth-view">
         <div class="login-container">
-            <!-- Login Form (Visible by default) -->
             <form id="login-form" class="auth-form">
                 <div class="login-header">
                     <div class="login-icon-wrapper"><i class="fa-solid fa-briefcase-medical"></i></div>
@@ -34,7 +26,6 @@
                 <p class="auth-switch-text">Don't have an account? <a href="#" id="show-signup-link">Sign Up</a></p>
             </form>
 
-            <!-- Signup Form (Hidden by default) -->
             <form id="signup-form" class="auth-form hidden">
                 <div class="login-header">
                     <div class="login-icon-wrapper"><i class="fa-solid fa-user-plus"></i></div>
@@ -51,9 +42,6 @@
         </div>
     </div>
 
-    <!-- ====================================================== -->
-    <!-- MAIN APPLICATION VIEW (Initially Hidden)               -->
-    <!-- ====================================================== -->
     <div id="main-app-view" class="hidden">
         <nav class="main-nav">
             <div class="nav-logo"><i class="fa-solid fa-briefcase-medical"></i><h1>RMO Job-Flow</h1></div>
@@ -61,14 +49,15 @@
                 <a href="#dashboard" class="nav-link active"><i class="fa-solid fa-table-columns"></i> <span>Dashboard</span></a>
                 <a href="#experienceBook" class="nav-link"><i class="fa-solid fa-book-bookmark"></i> <span>Experience Book</span></a>
                 <a href="#documents" class="nav-link"><i class="fa-solid fa-folder-open"></i> <span>My Documents</span></a>
-                <a href="#settings" class="nav-link"><i class="fa-solid fa-gear"></i> <span>Settings</span></a>
             </div>
-            <div class="nav-user" id="nav-user-menu">
-                <img id="nav-user-img" src="placeholder.jpg" alt="User" class="nav-user-avatar">
+            <div class="nav-user">
                 <span class="nav-welcome-text">Welcome, <span id="nav-user-name">User</span></span>
-                <div class="dropdown-menu hidden" id="user-dropdown">
-                    <a href="#settings" class="dropdown-item nav-link"><i class="fa-solid fa-user-pen"></i> Edit Profile</a>
-                    <a href="#" class="dropdown-item" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                <div class="nav-user-menu" id="nav-user-menu">
+                    <img id="nav-user-img" src="placeholder.jpg" alt="User" class="nav-user-avatar">
+                    <div class="dropdown-menu hidden" id="user-dropdown">
+                        <a href="#settings" class="dropdown-item nav-link-item"><i class="fa-solid fa-gear"></i> Settings</a>
+                        <a href="#" class="dropdown-item" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                    </div>
                 </div>
             </div>
         </nav>
@@ -177,7 +166,7 @@
                 </footer>
             </form>
         </main>
-
+        
         <!-- MY DOCUMENTS PAGE -->
         <main id="documents" class="page-content hidden">
             <header class="page-header-nav"><h2><i class="fa-solid fa-folder-open"></i> My Documents</h2></header>
@@ -202,7 +191,7 @@
             <header class="page-header-nav"><h2><i class="fa-solid fa-gear"></i> Settings</h2></header>
             
             <section class="detail-section">
-                <h3>User Profile</h3>
+                <h3>Your Profile</h3>
                 <div class="profile-layout">
                     <div class="profile-image-section">
                         <img id="profile-image-preview" src="placeholder.jpg" alt="Profile Picture" class="profile-image-preview">
@@ -212,9 +201,16 @@
                     <div class="profile-details-section">
                         <div class="form-group"><label for="profile-name">Full Name</label><input type="text" id="profile-name"></div>
                         <div class="form-group"><label for="profile-email">Email Address</label><input type="email" id="profile-email" disabled></div>
-                        <button id="save-profile-btn" class="primary-action-btn">Save Profile Changes</button>
+                        <button id="save-profile-btn" class="primary-action-btn">Save Name</button>
                     </div>
                 </div>
+                <hr style="margin: 25px 0;">
+                <h4>Update Password</h4>
+                <div class="form-group">
+                    <label for="profile-new-password">New Password</label>
+                    <input type="password" id="profile-new-password" placeholder="Must be at least 6 characters">
+                </div>
+                <button id="update-password-btn" class="primary-action-btn">Update Password</button>
             </section>
             
             <section class="detail-section">
@@ -237,10 +233,9 @@
             </section>
         </main>
         
-        <!-- APPLICATION DETAIL PAGE -->
+        <!-- APPLICATION DETAIL PAGE (Content is extensive and remains unchanged) -->
         <main id="applicationDetailPage" class="page-content hidden">
             <header class="page-header-nav"><button id="back-to-dashboard-btn" class="secondary-btn"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</button></header>
-            
             <section id="detail-summary-card" class="detail-summary-card">
                 <div class="summary-main"><h2 id="summary-job-title"></h2><p id="summary-hospital"></p></div>
                 <div class="summary-details">
@@ -248,14 +243,11 @@
                     <div><label>Closing Date</label><span id="summary-closing-date"></span></div>
                 </div>
             </section>
-
             <div class="tab-switcher">
                 <button class="tab-btn active" data-target="details-panel">Job Ad Details</button>
                 <button class="tab-btn" data-target="tracker-panel">My Tracker</button>
             </div>
-
             <form id="application-detail-form">
-                
                 <div id="details-panel" class="tab-panel active">
                     <section class="detail-section">
                         <h3>Core Job Information & Logistics</h3>
@@ -293,7 +285,6 @@
                         <textarea id="detail-job-notes" rows="6" placeholder="Log objective details from the job ad, position description, or official communications here..."></textarea>
                     </section>
                 </div>
-
                 <div id="tracker-panel" class="tab-panel">
                     <section class="detail-section"><h3>Your Application Progress</h3><div class="form-grid-3-col"><div><label for="detail-status">Overall Status</label><select id="detail-status"></select></div><div><label for="detail-date-applied">Date Applied / EOI Sent</label><input type="date" id="detail-date-applied"></div><div><label for="detail-follow-up-date">Follow-Up Date</label><input type="date" id="detail-follow-up-date"></div><div class="checkbox-group align-end"><input type="checkbox" id="detail-follow-up-complete"><label for="detail-follow-up-complete">Follow-Up Complete?</label></div></div></section>
                     <section class="detail-section"><h3>Selection Criteria Workbench</h3><p class="text-light" style="margin-bottom: 20px;">Craft your responses to the specific selection criteria for this job. Link responses from your Experience Book.</p><div id="selection-criteria-workbench" class="workbench-container"></div><div class="workbench-footer"><button type="button" id="add-criterion-btn" class="secondary-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button></div></section>
@@ -304,7 +295,6 @@
                         <textarea id="detail-tracker-notes" rows="8" placeholder="Log all personal interactions, prep points, rotation details, or any other important context here..."></textarea>
                     </section>
                 </div>
-
                 <footer class="detail-footer">
                     <div class="footer-actions-left">
                         <button type="button" id="delete-app-btn" class="danger-btn">Delete Application</button>
@@ -333,7 +323,6 @@
             <div class="modal-footer"><button id="summary-modal-ok-btn" class="primary-action-btn">OK</button></div>
         </div>
     </div>
-
     <div id="delete-modal-backdrop" class="modal-backdrop hidden">
         <div id="delete-modal" class="modal">
             <div class="modal-header"><h3 id="delete-modal-title">Confirm Deletion</h3><button id="delete-modal-close-btn" class="modal-close-btn">×</button></div>
@@ -347,7 +336,6 @@
             </div>
         </div>
     </div>
-    
     <div id="link-experience-modal-backdrop" class="modal-backdrop hidden">
         <div id="link-experience-modal" class="modal">
              <div class="modal-header"><h3>Link an Experience</h3><button id="link-experience-close-btn" class="modal-close-btn">×</button></div>
