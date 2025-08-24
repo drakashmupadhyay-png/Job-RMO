@@ -201,6 +201,9 @@ function handleSidebarClicks(e) {
 }
 
 function handleHeaderClicks(e) {
+    if (e.target.closest('#mobile-menu-btn')) {
+        ui.toggleMobileSidebar(true); // Explicitly tell the UI to open the sidebar
+    }
     if (e.target.closest('#logout-btn')) {
         signOut(auth);
     }
