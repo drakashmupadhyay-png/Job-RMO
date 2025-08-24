@@ -194,7 +194,7 @@ function handleSidebarClicks(e) {
     if (link) {
         window.location.hash = link.getAttribute('href');
     }
-    if(e.target.closest('#sidebar-toggle-btn')) {
+    if(e.target.closest('.sidebar-header')) {
         appState.ui.isSidebarCollapsed = !appState.ui.isSidebarCollapsed;
         ui.toggleSidebar(appState.ui.isSidebarCollapsed);
     }
