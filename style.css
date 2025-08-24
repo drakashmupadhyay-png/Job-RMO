@@ -1,7 +1,7 @@
 /* ---
-   RMO Job-Flow - style.css (v2.1 - Post-Deployment Bug Fixes)
-   Description: Corrects layout, spacing, and responsive bugs identified
-   from live deployment screenshots, ensuring a premium and polished UI.
+   RMO Job-Flow - style.css (v2.2 - Final Blueprint Polish)
+   Description: Corrects all identified layout, spacing, and responsive bugs.
+   Implements the final professional styling for all application components.
 --- */
 
 /* ==========================================================================
@@ -64,18 +64,9 @@ html[data-theme="dark"] {
    2. GENERAL STYLES & UTILITIES
    ========================================================================== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background-color: var(--background-primary);
-    color: var(--text-primary);
-    font-size: 16px;
-    line-height: 1.6;
-    overflow-x: hidden;
-    transition: background-color 0.3s, color 0.3s;
-}
-
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--background-primary); color: var(--text-primary); font-size: 16px; line-height: 1.6; overflow: hidden; /* Prevent body scroll */ }
 .hidden { display: none !important; }
+hr { border: none; height: 1px; background-color: var(--border-primary); margin: 20px 0; }
 
 /* ==========================================================================
    3. AUTHENTICATION VIEW
@@ -95,112 +86,24 @@ body {
    4. GLOBAL APP LAYOUT & SIDEBAR
    ========================================================================== */
 #main-app-view { display: flex; height: 100vh; }
-#app-sidebar { width: var(--sidebar-width-expanded); background-color: var(--surface-primary); border-right: 1px solid var(--border-primary); display: flex; flex-direction: column; padding: 20px 15px; transition: width 0.3s var(--ease-out-cubic); }
+#app-sidebar { width: var(--sidebar-width-expanded); background-color: var(--surface-primary); border-right: 1px solid var(--border-primary); display: flex; flex-direction: column; padding: 15px; transition: width 0.3s var(--ease-out-cubic); }
 #app-sidebar.collapsed { width: var(--sidebar-width-collapsed); }
-/* --- In style.css, ADD these new rules --- */
-
-/* Make the entire header area the new toggle button */
-.sidebar-header {
-    position: relative; /* Anchor for the chevron */
-    cursor: pointer;
-    padding: 10px;
-    border-radius: 6px;
-    transition: background-color 0.2s;
-}
-
-.sidebar-header:hover {
-    background-color: var(--background-secondary);
-}
-
-/* Create a new chevron that lives in the header */
-.sidebar-header::after {
-    content: '\f053'; /* Font Awesome chevron-left icon */
-    font-family: 'Font Awesome 6 Free';
-    font-weight: 900;
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%) rotate(0deg);
-    transition: transform 0.3s var(--ease-out-cubic);
-    color: var(--text-secondary);
-}
-
-#app-sidebar.collapsed .sidebar-header::after {
-    transform: translateY(-50%) rotate(180deg);
-}
-
-/* Adjust the logo's bottom margin */
-.sidebar-header .nav-logo {
-    margin-bottom: 20px;
-}
-
-/* Clean up the footer */
-.sidebar-footer {
-    padding-top: 20px;
-    border-top: 1px solid var(--border-secondary);
-}
-.sidebar-header .nav-logo { display: flex; align-items: center; gap: 12px; font-size: 1.5rem; padding: 0 10px; color: var(--primary-blue); margin-bottom: 30px; }
-.nav-logo h1 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; opacity: 1; transition: opacity 0.3s ease; }
+.sidebar-header { cursor: pointer; padding: 10px; border-radius: 6px; transition: background-color 0.2s; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.sidebar-header:hover { background-color: var(--background-secondary); }
+.sidebar-header .nav-logo { display: flex; align-items: center; gap: 12px; color: var(--primary-blue); flex-shrink: 0; overflow: hidden; }
+.nav-logo i { font-size: 1.5rem; }
+.nav-logo h1 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
 #app-sidebar.collapsed .nav-logo h1 { opacity: 0; pointer-events: none; }
-/* --- In style.css, find and UPDATE this block --- */
-
-.sidebar-nav {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.nav-link {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 12px 10px;
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--text-secondary);
-    font-weight: 500;
-    white-space: nowrap;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-.nav-link i {
-    font-size: 1.1rem;
-    width: 20px;
-    text-align: center;
-    /* ADD THIS LINE for smoother icon transition */
-    transition: margin 0.3s var(--ease-out-cubic);
-}
-
-.nav-link:hover {
-    background-color: var(--background-secondary);
-    color: var(--text-primary);
-}
-
-.nav-link.active {
-    background-color: var(--primary-blue);
-    color: white;
-}
-
-#app-sidebar.collapsed .nav-link span {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s;
-}
-
-/* ADD THIS NEW RULE to perfectly center the icon when collapsed */
-#app-sidebar.collapsed .nav-link i {
-    margin: 0 auto;
-}
-/* --- In style.css, ADD this new, complete block for the footer --- */
-
-.sidebar-footer {
-    padding-top: 20px;
-    border-top: 1px solid var(--border-secondary);
-    display: flex;
-    flex-direction: column;
-    gap: 8px; /* Add gap for spacing */
-}
+/* FIX: Keep icon centered when text disappears */
+#app-sidebar.collapsed .nav-logo { justify-content: center; width: 100%; }
+.sidebar-nav { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
+.nav-link { display: flex; align-items: center; gap: 15px; padding: 12px 10px; border-radius: 6px; text-decoration: none; color: var(--text-secondary); font-weight: 500; white-space: nowrap; transition: background-color 0.2s, color 0.2s; }
+.nav-link i { font-size: 1.1rem; width: 20px; text-align: center; transition: margin 0.3s var(--ease-out-cubic); flex-shrink: 0; }
+.nav-link:hover { background-color: var(--background-secondary); color: var(--text-primary); }
+.nav-link.active { background-color: var(--primary-blue); color: white; }
+#app-sidebar.collapsed .nav-link span { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+#app-sidebar.collapsed .nav-link i { margin: 0 auto; }
+.sidebar-footer { padding-top: 15px; border-top: 1px solid var(--border-secondary); }
 
 /* ==========================================================================
    5. MAIN WORKSPACE & GLOBAL HEADER
@@ -211,7 +114,6 @@ body {
 .header-user-area { display: flex; align-items: center; gap: 15px; }
 .nav-user { display: flex; align-items: center; gap: 15px; }
 .nav-user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-primary); }
-/* FIX: Added position: relative to correctly anchor the dropdown */
 .nav-user-menu { position: relative; cursor: pointer; }
 .dropdown-menu { position: absolute; top: 120%; right: 0; background-color: var(--surface-primary); border-radius: 8px; box-shadow: var(--shadow-medium); padding: 8px; min-width: 200px; z-index: 100; border: 1px solid var(--border-primary); }
 .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 4px; color: var(--text-primary); text-decoration: none; }
@@ -221,9 +123,8 @@ body {
 /* ==========================================================================
    6. DASHBOARD & ITS COMPONENTS
    ========================================================================== */
-/* FIX: Correct flex implementation for side-by-side layout */
 .dashboard-layout { display: flex; gap: 20px; }
-#dashboard-main-content { flex-grow: 1; transition: width 0.3s var(--ease-out-cubic); }
+#dashboard-main-content { flex-grow: 1; min-width: 0; /* Important for flexbox shrinking */ }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
 .page-title { font-size: 1.8rem; font-weight: 600; }
 .toolbar-actions { display: flex; align-items: center; gap: 10px; }
@@ -243,19 +144,17 @@ th { color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;
 .secondary-data-row.visible { display: table-row; }
 .secondary-data-cell { padding: 20px 30px !important; background-color: var(--background-secondary); }
 .secondary-data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-/* FIX: Correct implementation for slide-in inspector panel */
-#filter-panel { width: var(--inspector-width); background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; flex-shrink: 0; transition: margin-left 0.3s var(--ease-out-cubic), opacity 0.3s; margin-left: 0; }
-#filter-panel.collapsed { width: 0; border: none; overflow: hidden; margin-left: calc(var(--inspector-width) * -1 - 20px); opacity: 0; }
+.empty-state-cell { padding: 60px 20px !important; text-align: center; color: var(--text-secondary); }
+/* FIX: Correct styles for slide-in filter panel */
+#filter-panel { width: var(--inspector-width); background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; flex-shrink: 0; margin-left: -20px; transform: translateX(calc(-100%)); z-index: 10; transition: transform 0.3s var(--ease-out-cubic); }
+#filter-panel:not(.collapsed) { transform: translateX(0); }
 .inspector-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-primary); }
 .inspector-header h3 { font-size: 1.1rem; }
 .inspector-content { padding: 15px; display: flex; flex-direction: column; gap: 15px; }
-/* FIX: Polished empty state for the table */
-.empty-state-cell { padding: 60px 20px !important; text-align: center; color: var(--text-secondary); }
 
 /* ==========================================================================
    7. SETTINGS PAGE
    ========================================================================== */
-/* FIX: Improved layout and spacing for settings */
 .settings-layout { display: flex; gap: 40px; }
 .settings-sidebar { width: 200px; flex-shrink: 0; }
 .settings-link { display: flex; align-items: center; gap: 12px; padding: 10px 15px; border-radius: 6px; font-weight: 500; color: var(--text-secondary); text-decoration: none; margin-bottom: 5px; }
@@ -315,19 +214,21 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     #app-sidebar.collapsed { width: var(--sidebar-width-expanded); }
     #main-workspace { margin-left: 0; }
     #mobile-menu-btn { display: flex; align-items: center; justify-content: center; }
-    .nav-welcome-text { display: none; }
+    /* FIX: Show welcome text on tablet, hide on smaller phones */
+    .nav-welcome-text { display: inline; }
     #mobile-sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease-out-cubic); }
     #mobile-sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
 }
 
 @media (max-width: 992px) {
     .dashboard-layout { flex-direction: column; }
-    #filter-panel { width: 100% !important; margin-left: 0 !important; transform: none !important; position: static; max-height: 0; padding: 0 15px; overflow: hidden; border: none; transition: max-height 0.3s var(--ease-out-cubic), padding 0.3s; opacity: 1 !important; }
+    #filter-panel { width: 100%; margin-left: 0; transform: none; position: static; max-height: 0; padding: 0 15px; overflow: hidden; border: none; transition: max-height 0.3s var(--ease-out-cubic), padding 0.3s; opacity: 1; }
     #filter-panel:not(.collapsed) { max-height: 500px; padding: 0; border: none; margin-bottom: 20px; }
     .settings-layout, .detail-workspace { flex-direction: column; }
-    .settings-sidebar, .detail-nav-pane { width: 100%; flex-direction: row; overflow-x: auto; border-bottom: 1px solid var(--border-primary); margin-bottom: 20px; }
-    .settings-link, .in-page-link { border-bottom: 3px solid transparent; border-radius: 0; }
-    .settings-link.active, .in-page-link.active { border-bottom-color: var(--primary-blue); background-color: transparent; }
+    /* FIX: Correct responsive settings navigation */
+    .settings-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-bottom: 1px solid var(--border-primary); margin-bottom: 20px; }
+    .settings-link { border-bottom: 3px solid transparent; border-radius: 0; flex-shrink: 0; }
+    .settings-link.active, .settings-link:hover { border-bottom-color: var(--primary-blue); background-color: transparent; color: var(--primary-blue); }
     .table-container thead { display: none; }
     .table-container tr { display: block; border: 1px solid var(--border-primary); border-radius: 8px; margin-bottom: 15px; padding: 10px; }
     .table-container .secondary-data-row { display: none !important; }
@@ -345,4 +246,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     .page-title { font-size: 1.5rem; }
     .toolbar-actions { flex-wrap: wrap; justify-content: flex-end; }
     .profile-component { flex-direction: column; align-items: center; }
+    /* FIX: Hide welcome text on small phone screens */
+    .nav-welcome-text { display: none; }
 }
