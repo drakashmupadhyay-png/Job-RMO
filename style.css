@@ -100,16 +100,120 @@ body {
 .sidebar-header .nav-logo { display: flex; align-items: center; gap: 12px; font-size: 1.5rem; padding: 0 10px; color: var(--primary-blue); margin-bottom: 30px; }
 .nav-logo h1 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; opacity: 1; transition: opacity 0.3s ease; }
 #app-sidebar.collapsed .nav-logo h1 { opacity: 0; pointer-events: none; }
-.sidebar-nav { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
-.nav-link { display: flex; align-items: center; gap: 15px; padding: 12px 10px; border-radius: 6px; text-decoration: none; color: var(--text-secondary); font-weight: 500; white-space: nowrap; transition: background-color 0.2s, color 0.2s; }
-.nav-link i { font-size: 1.1rem; width: 20px; text-align: center; }
-.nav-link:hover { background-color: var(--background-secondary); color: var(--text-primary); }
-.nav-link.active { background-color: var(--primary-blue); color: white; }
-#app-sidebar.collapsed .nav-link span { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
-.sidebar-footer { padding-top: 20px; border-top: 1px solid var(--border-secondary); }
-#sidebar-toggle-btn { width: 100%; justify-content: flex-end; }
-#sidebar-toggle-btn i { transition: transform 0.3s var(--ease-out-cubic); }
-#app-sidebar.collapsed #sidebar-toggle-btn i { transform: rotate(180deg); }
+/* --- In style.css, find and UPDATE this block --- */
+
+.sidebar-nav {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-link i {
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+    /* ADD THIS LINE for smoother icon transition */
+    transition: margin 0.3s var(--ease-out-cubic);
+}
+
+.nav-link:hover {
+    background-color: var(--background-secondary);
+    color: var(--text-primary);
+}
+
+.nav-link.active {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+#app-sidebar.collapsed .nav-link span {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+/* ADD THIS NEW RULE to perfectly center the icon when collapsed */
+#app-sidebar.collapsed .nav-link i {
+    margin: 0 auto;
+}
+/* --- In style.css, ADD this new, complete block for the footer --- */
+
+.sidebar-footer {
+    padding-top: 20px;
+    border-top: 1px solid var(--border-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Add gap for spacing */
+}
+
+/* Default state for the toggle button */
+#sidebar-toggle-btn {
+    /* Use our standard secondary button style */
+    background-color: var(--surface-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-primary);
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Pushes icon to the right */
+}
+
+#sidebar-toggle-btn:hover {
+    background-color: var(--border-secondary);
+}
+
+#sidebar-toggle-btn i {
+    transition: transform 0.3s var(--ease-out-cubic);
+}
+
+#app-sidebar.collapsed #sidebar-toggle-btn i {
+    transform: rotate(180deg);
+}
+
+/* --- FIX: Styles for the collapsed footer --- */
+#app-sidebar.collapsed .sidebar-footer {
+    align-items: center; /* Center items horizontally */
+}
+
+/* FIX: This is the key fix for the rogue button */
+#app-sidebar.collapsed #sidebar-toggle-btn {
+    background: none;
+    border: none;
+    width: auto; /* Allow button to shrink to icon size */
+    color: var(--text-secondary);
+    justify-content: center; /* Center the icon */
+}
+
+#app-sidebar.collapsed #sidebar-toggle-btn:hover {
+    background-color: var(--background-secondary);
+    color: var(--text-primary);
+    border-radius: 50%; /* Make hover state circular */
+}
+
+/* FIX: Add a "Collapse" text that we can hide */
+#sidebar-toggle-btn::after {
+    content: 'Collapse';
+    font-weight: 500;
+}
+
+#app-sidebar.collapsed #sidebar-toggle-btn::after {
+    display: none; /* Hide the "Collapse" text */
+}
 
 /* ==========================================================================
    5. MAIN WORKSPACE & GLOBAL HEADER
