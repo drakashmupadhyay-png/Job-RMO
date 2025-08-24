@@ -1,593 +1,389 @@
 "use strict";
 
-// --- 0. IMPORTS ---
-import { auth, db } from './firebase-config.js';
+// ---
+// RMO Job-Flow - main.js (v2.0 - Blueprint Realized)
+// Description: The central "brain" of the application. Manages state,
+// orchestrates modules (API, UI), and handles all business logic and event listeners.
+// ---
+
+import { auth } from './firebase-config.js';
 import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { collection, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import * as api from './api.js';
 import * as ui from './ui.js';
+import * as utils from './utils.js';
 
-// --- 1. GLOBAL STATE (SAFE TO DECLARE HERE) ---
+// --- GLOBAL STATE ---
 let currentUser = null;
 let userProfileData = {};
-let jobsUnsubscribe = null;
-let experiencesUnsubscribe = null;
-let documentsUnsubscribe = null;
+let appState = {
+    jobs: [],
+    experiences: [],
+    documents: [],
+    ui: {
+        currentPage: 'dashboard',
+        isFilterPanelOpen: false,
+        isSidebarCollapsed: false,
+        activeJobId: null,
+        activeExperienceId: null,
+        activeDocumentId: null,
+    },
+    filters: {
+        dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' },
+        experienceBook: { search: '', tags: [] }
+    }
+};
+let realtimeListeners = [];
+let currentPageCleanup = () => {}; // Holds the cleanup function for the current page's listeners
 
-let localJobsCache = [];
-let localExperiencesCache = [];
-let localDocumentsCache = [];
-
-let currentJobId = null;
-let currentExperienceId = null;
-let stagedDocuments = []; 
-let stagedCriteria = [];
-let currentFilters = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default', roleLevel: 'all' };
-let activeExperienceTags = [];
-let currentWorkbenchTarget = null;
-let isSelectMode = false; 
-let selectedJobIds = new Set();
-let eventListenersAttached = false;
-let clockInterval;
-let calendar;
-
-const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'];
-const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI'];
-const roleLevelOptions = ['Intern', 'RMO', 'SRMO', 'Registrar', 'Trainee'];
-const statusOptions = ['Identified', 'Preparing Application', 'Applied', 'Interview Offered', 'Offer Received', 'Unsuccessful', 'Closed', 'Offer Declined'];
-
-// --- 2. EXPORTED FUNCTIONS for auth.js ---
+// --- PRIMARY ENTRY/EXIT POINTS (Called by auth.js) ---
 
 export function initializeMainApp(user) {
     currentUser = user;
-    
-    const uiSelectors = {
-        navUserMenu: document.getElementById('nav-user-menu'),
-        userDropdown: document.getElementById('user-dropdown'),
-        mainNavLinks: document.querySelector('.nav-links'),
-        backToDashboardBtn: document.getElementById('back-to-dashboard-btn'),
-        backToExpBookBtn: document.getElementById('back-to-exp-book-btn'),
-        addNewAppBtn: document.getElementById('add-new-application-btn'),
-        jobsTableBody: document.getElementById('jobs-table-body'),
-        cardViewContainer: document.getElementById('card-view-container'),
-        calendarViewContainer: document.getElementById('calendar-view-container'),
-        toggleFiltersBtn: document.getElementById('toggle-filters-btn'),
-        stateFilter: document.getElementById('state-filter'),
-        typeFilter: document.getElementById('type-filter'),
-        statusFilter: document.getElementById('status-filter'),
-        sortByFilter: document.getElementById('sort-by-filter'),
-        roleLevelFilter: document.getElementById('role-level-filter'),
-        searchBar: document.getElementById('search-bar'),
-        clearFiltersBtn: document.getElementById('clear-filters-btn'),
-        filterControls: document.getElementById('filter-controls'),
-        selectJobsBtn: document.getElementById('select-jobs-btn'),
-        cancelSelectionBtn: document.getElementById('cancel-selection-btn'),
-        deleteSelectedBtn: document.getElementById('delete-selected-btn'),
-        jobsTableHeader: document.querySelector('#table-view-container thead'),
-        applicationDetailForm: document.getElementById('application-detail-form'),
-        deleteAppBtn: document.getElementById('delete-app-btn'),
-        duplicateAppBtn: document.getElementById('duplicate-app-btn'),
-        tabSwitcher: document.getElementById('applicationDetailPage').querySelector('.tab-switcher'),
-        jobIdInput: document.getElementById('detail-job-id'),
-        uploadOfficialDocBtn: document.getElementById('upload-official-doc-btn'),
-        officialDocFileInput: document.getElementById('official-doc-file-input'),
-        attachFromRepoBtn: document.getElementById('attach-from-repo-btn'),
-        addNewExperienceBtn: document.getElementById('add-new-experience-btn'),
-        experienceSearchBar: document.getElementById('experience-search-bar'),
-        experienceTagFilters: document.getElementById('experience-tag-filters'),
-        experienceCardsContainer: document.getElementById('experience-cards-container'),
-        experienceDetailForm: document.getElementById('experience-detail-form'),
-        deleteExpBtn: document.getElementById('delete-exp-btn'),
-        copyExpBtn: document.getElementById('copy-exp-btn'),
-        saveProfileBtn: document.getElementById('save-profile-btn'),
-        updatePasswordBtn: document.getElementById('update-password-btn'),
-        profileImageUploadBtn: document.getElementById('profile-image-upload-btn'),
-        profileImageUpload: document.getElementById('profile-image-upload'),
-        masterDocBrowseBtn: document.getElementById('master-doc-browse-btn'),
-        masterDocFileInput: document.getElementById('master-doc-file-input'),
-        masterDocsList: document.getElementById('master-docs-tbody'),
-        deleteAccountBtn: document.getElementById('delete-account-btn'),
-        deleteModalConfirmBtn: document.getElementById('delete-modal-confirm-btn'),
-        deleteModalCloseBtn: document.getElementById('delete-modal-close-btn'),
-        deleteModalCancelBtn: document.getElementById('delete-modal-cancel-btn'),
-        attachDocCloseBtn: document.getElementById('attach-document-close-btn'),
-        attachDocList: document.getElementById('attach-document-list'),
-        linkExperienceCloseBtn: document.getElementById('link-experience-close-btn'),
-        logoutBtn: document.getElementById('logout-btn')
-    };
-
-    attachFirestoreListeners(user.uid);
-    if (!eventListenersAttached) {
-        attachMainAppEventListeners(uiSelectors);
-        eventListenersAttached = true;
-    }
-    initializeCalendar();
-    if(clockInterval) clearInterval(clockInterval);
-    clockInterval = setInterval(ui.updateClock, 1000);
-    ui.navigateToPage('dashboard');
+    console.log("Initializing main application for user:", user.uid);
+    setupRealtimeListeners(user.uid);
+    attachGlobalEventListeners(); // Attach listeners that are always active
+    navigateTo(window.location.hash || '#dashboard');
 }
 
 export function cleanupMainApp() {
-    if (jobsUnsubscribe) jobsUnsubscribe();
-    if (experiencesUnsubscribe) experiencesUnsubscribe();
-    if (documentsUnsubscribe) documentsUnsubscribe();
-    
-    localJobsCache = [], localExperiencesCache = [], localDocumentsCache = [];
+    console.log("Cleaning up main application.");
+    realtimeListeners.forEach(unsubscribe => unsubscribe());
+    realtimeListeners = [];
+    if (typeof currentPageCleanup === 'function') {
+        currentPageCleanup(); // Clean up listeners for the last active page
+    }
+    currentUser = null;
     userProfileData = {};
-    document.getElementById('jobs-table-body').innerHTML = '';
-    document.getElementById('card-view-container').innerHTML = '';
-    
-    if (clockInterval) clearInterval(clockInterval);
-}
-
-// --- 3. FIRESTORE & STATE MANAGEMENT ---
-
-function attachFirestoreListeners(userId) {
-    onSnapshot(doc(db, "users", userId), (doc) => {
-        if (doc.exists()) {
-            userProfileData = doc.data();
-            ui.updateUIAfterLogin(currentUser, userProfileData);
-        }
-    });
-    const jobsRef = collection(db, `users/${userId}/jobs`);
-    jobsUnsubscribe = onSnapshot(query(jobsRef, orderBy("createdAt", "desc")), (snapshot) => {
-        localJobsCache = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return { ...data, id: doc.id, closingDate: data.closingDate?.toDate(), dateApplied: data.dateApplied?.toDate(), followUpDate: data.followUpDate?.toDate(), interviewDate: data.interviewDate?.toDate(), createdAt: data.createdAt?.toDate() };
-        });
-        const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') };
-        ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors);
-    });
-    const experiencesRef = collection(db, `users/${userId}/experiences`);
-    experiencesUnsubscribe = onSnapshot(query(experiencesRef, orderBy("createdAt", "desc")), (snapshot) => {
-        localExperiencesCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        if (document.getElementById('experienceBook') && !document.getElementById('experienceBook').classList.contains('hidden')) {
-            ui.renderExperienceBook(localExperiencesCache, activeExperienceTags);
-        }
-    });
-    const documentsRef = collection(db, `users/${userId}/documents`);
-    documentsUnsubscribe = onSnapshot(query(documentsRef, orderBy("uploadedAt", "desc")), (snapshot) => {
-        localDocumentsCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        if (document.getElementById('documents') && !document.getElementById('documents').classList.contains('hidden')) {
-            ui.renderMasterDocuments(localDocumentsCache);
-        }
-    });
-}
-
-function initializeCalendar() {
-    const calendarEl = document.getElementById('calendar');
-    if (calendarEl && !calendar) {
-        calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
-            events: [],
-            eventClick: (info) => {
-                const jobId = info.event.extendedProps.jobId;
-                handleViewJob(jobId);
-            }
-        });
-    }
-}
-
-// --- 4. EVENT LISTENERS ---
-
-function attachMainAppEventListeners(selectors) {
-    selectors.logoutBtn.addEventListener('click', () => signOut(auth));
-    selectors.mainNavLinks.addEventListener('click', handleNavigation);
-    selectors.userDropdown.addEventListener('click', handleNavigation);
-    selectors.navUserMenu.addEventListener('click', (e) => { e.stopPropagation(); selectors.userDropdown.classList.toggle('hidden'); });
-    window.addEventListener('click', () => { if (!selectors.userDropdown.classList.contains('hidden')) selectors.userDropdown.classList.add('hidden'); });
-    
-    selectors.backToDashboardBtn.addEventListener('click', () => ui.navigateToPage('dashboard'));
-    selectors.backToExpBookBtn.addEventListener('click', () => ui.navigateToPage('experienceBook'));
-    
-    selectors.addNewAppBtn.addEventListener('click', handleAddNewApplication);
-    selectors.jobsTableBody.addEventListener('click', handleJobsTableClick);
-    selectors.cardViewContainer.addEventListener('click', handleJobsTableClick);
-    selectors.toggleFiltersBtn.addEventListener('click', handleToggleFilters);
-    [selectors.stateFilter, selectors.typeFilter, selectors.statusFilter, selectors.sortByFilter, selectors.roleLevelFilter].forEach(el => el.addEventListener('change', handleFilterChange));
-    selectors.searchBar.addEventListener('input', () => { currentFilters.search = selectors.searchBar.value; const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') }; ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors); });
-    selectors.clearFiltersBtn.addEventListener('click', handleClearFilters);
-    selectors.selectJobsBtn.addEventListener('click', enterSelectMode);
-    selectors.cancelSelectionBtn.addEventListener('click', exitSelectMode);
-    selectors.deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
-    selectors.jobsTableHeader.addEventListener('change', handleSelectAll);
-
-    selectors.applicationDetailForm.addEventListener('submit', handleSaveApplication);
-    selectors.deleteAppBtn.addEventListener('click', handleDeleteApplication);
-    selectors.duplicateAppBtn.addEventListener('click', handleDuplicateApplication);
-    selectors.tabSwitcher.addEventListener('click', handleTabSwitch);
-    selectors.jobIdInput.addEventListener('input', checkJobIdUniqueness);
-    selectors.uploadOfficialDocBtn.addEventListener('click', () => selectors.officialDocFileInput.click());
-    selectors.officialDocFileInput.addEventListener('change', handleOfficialDocUpload);
-    selectors.attachFromRepoBtn.addEventListener('click', handleAttachFromRepo);
-    document.getElementById('add-criterion-btn').addEventListener('click', handleAddCriterion);
-    document.getElementById('selection-criteria-workbench').addEventListener('click', handleWorkbenchClick);
-    
-    selectors.addNewExperienceBtn.addEventListener('click', () => handleAddNewExperience());
-    selectors.experienceSearchBar.addEventListener('input', () => ui.renderExperienceBook(localExperiencesCache, activeExperienceTags));
-    selectors.experienceTagFilters.addEventListener('click', handleTagFilterClick);
-    selectors.experienceCardsContainer.addEventListener('click', handleExperienceCardClick);
-    selectors.experienceDetailForm.addEventListener('submit', handleSaveExperience);
-    selectors.deleteExpBtn.addEventListener('click', handleDeleteExperience);
-    selectors.copyExpBtn.addEventListener('click', handleCopyExperience);
-    
-    selectors.saveProfileBtn.addEventListener('click', handleSaveProfile);
-    selectors.updatePasswordBtn.addEventListener('click', handleUpdatePassword);
-    selectors.profileImageUploadBtn.addEventListener('click', () => selectors.profileImageUpload.click());
-    selectors.profileImageUpload.addEventListener('change', handleProfileImageUpload);
-    selectors.masterDocBrowseBtn.addEventListener('click', () => selectors.masterDocFileInput.click());
-    selectors.masterDocFileInput.addEventListener('change', handleMasterDocumentUpload);
-    selectors.masterDocsList.addEventListener('click', handleDeleteMasterDoc);
-    selectors.deleteAccountBtn.addEventListener('click', handleDeleteAccount);
-
-    selectors.deleteModalCloseBtn.addEventListener('click', ui.hideDeleteModal);
-    selectors.deleteModalCancelBtn.addEventListener('click', ui.hideDeleteModal);
-    selectors.deleteModalConfirmBtn.addEventListener('click', executeDeleteSelected);
-    selectors.attachDocCloseBtn.addEventListener('click', ui.hideAttachDocModal);
-    selectors.attachDocList.addEventListener('click', handleAttachDocSelect);
-    selectors.linkExperienceCloseBtn.addEventListener('click', ui.hideLinkExperienceModal);
-    document.getElementById('link-experience-search').addEventListener('input', () => ui.populateLinkExperienceModal(localExperiencesCache));
-    document.getElementById('link-experience-list').addEventListener('click', handleLinkExperienceSelect);
-}
-
-// --- 5. EVENT HANDLERS ---
-
-function handleNavigation(e) { 
-    e.preventDefault(); 
-    const link = e.target.closest('a'); 
-    if (link && link.href.includes('#')) {
-        ui.navigateToPage(link.getAttribute('href').substring(1)); 
-    }
-}
-
-function handleAddNewApplication() {
-    currentJobId = null;
-    stagedDocuments = [];
-    stagedCriteria = [];
-    ui.populateApplicationDetailPage({}, stateOptions, typeOptions, roleLevelOptions, statusOptions);
-    ui.navigateToPage('applicationDetailPage');
-}
-
-function handleJobsTableClick(e) {
-    const target = e.target.closest('button.action-btn, tr, .job-card');
-    if (!target) return;
-    const jobId = target.dataset.jobId;
-
-    if (isSelectMode && target.tagName === 'TR') {
-        const checkbox = target.querySelector('.row-checkbox');
-        if (checkbox) {
-            if (e.target.tagName !== 'INPUT') checkbox.checked = !checkbox.checked;
-            handleSelectionChange(jobId, checkbox.checked);
-        }
-    } else if (target.classList.contains('view-btn') || target.classList.contains('job-card')) {
-        handleViewJob(jobId);
-    } 
-}
-
-function handleViewJob(jobId) {
-    const job = localJobsCache.find(j => j.id === jobId);
-    if (job) {
-        currentJobId = job.id;
-        stagedDocuments = job.documents || [];
-        stagedCriteria = job.jobSelectionCriteria || [];
-        ui.populateApplicationDetailPage(job, stateOptions, typeOptions, roleLevelOptions, statusOptions);
-        ui.navigateToPage('applicationDetailPage');
-    }
-}
-
-async function handleSaveApplication(e) {
-    e.preventDefault();
-    if (!currentUser) return ui.showToast("Authentication error", "error");
-    
-    stagedCriteria = Array.from(document.getElementById('selection-criteria-workbench').querySelectorAll('.workbench-item')).map(item => ({
-        criterion: item.querySelector('.workbench-criterion').textContent,
-        response: item.querySelector('textarea').value
-    }));
-
-    const getValue = id => document.getElementById(id).value;
-    const getText = id => document.getElementById(id).textContent;
-    const getChecked = id => document.getElementById(id).checked;
-
-    const jobData = {
-        jobTitle: getText('detail-job-title'), hospital: getText('detail-hospital'), healthNetwork: getText('detail-health-network'), sourceUrl: getText('detail-source-url'), location: getText('detail-location'), state: getValue('detail-state'), jobId: getText('detail-job-id').trim(), applicationType: getValue('detail-application-type'), portal: getText('detail-portal'), specialty: getText('detail-specialty'), roleLevel: getValue('detail-role-level'), contactPerson: getText('detail-contact-person'), contactEmail: getText('detail-contact-email'), contactPhone: getText('detail-contact-phone'), jobDetailNotes: getValue('detail-job-notes'), status: getValue('detail-status'), followUpComplete: getChecked('detail-follow-up-complete'), interviewType: getValue('detail-interview-type'), thankYouSent: getChecked('detail-thank-you-sent'), jobTrackerNotes: getValue('detail-tracker-notes'), 
-        closingDate: getValue('detail-closing-date') ? Timestamp.fromDate(new Date(getValue('detail-closing-date'))) : null, 
-        closingDateTimezone: getValue('detail-closing-date-tz'), 
-        dateApplied: getValue('detail-date-applied') ? Timestamp.fromDate(new Date(getValue('detail-date-applied'))) : null, 
-        followUpDate: getValue('detail-follow-up-date') ? Timestamp.fromDate(new Date(getValue('detail-follow-up-date'))) : null, 
-        interviewDate: getValue('detail-interview-date') ? Timestamp.fromDate(new Date(getValue('detail-interview-date'))) : null,
-        jobSelectionCriteria: stagedCriteria,
-        documents: stagedDocuments
+    // Reset state to default
+    appState = {
+        jobs: [], experiences: [], documents: [],
+        ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null },
+        filters: { dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' }, experienceBook: { search: '', tags: [] } }
     };
-
-    try {
-        await api.saveJob(currentUser.uid, jobData, currentJobId);
-        ui.showToast(currentJobId ? "Application updated!" : "Application added!");
-        ui.navigateToPage('dashboard');
-    } catch (error) {
-        console.error("Error saving application: ", error);
-        ui.showToast("Could not save application", "error");
-    }
 }
 
-async function handleDeleteApplication() {
-    const idToDelete = currentJobId;
-    if (idToDelete && confirm("Are you sure you want to permanently delete this application?")) {
-        try {
-            await api.deleteJob(currentUser.uid, idToDelete);
-            ui.showToast("Application deleted", "error");
-            ui.navigateToPage('dashboard');
-        } catch (error) {
-            ui.showToast("Deletion failed", "error");
-        }
-    }
-}
+// --- DATA & STATE MANAGEMENT ---
 
-function handleDuplicateApplication() {
-    const idToDup = currentJobId;
-    const originalJob = localJobsCache.find(j => j.id === idToDup);
-    if (!originalJob) return;
-    const newJob = JSON.parse(JSON.stringify(originalJob));
-    delete newJob.id;
-    newJob.jobTitle = `${originalJob.jobTitle} (Copy)`;
-    newJob.jobId = '';
-    newJob.status = 'Identified';
-    newJob.dateApplied = null;
-    newJob.closingDate = null;
-    currentJobId = null;
-    stagedDocuments = newJob.documents || [];
-    stagedCriteria = newJob.jobSelectionCriteria || [];
-    ui.populateApplicationDetailPage(newJob, stateOptions, typeOptions, roleLevelOptions, statusOptions);
-    ui.navigateToPage('applicationDetailPage');
-    ui.showToast('Application duplicated. Editing the new copy.');
-}
-
-function handleAddNewExperience() {
-    currentExperienceId = null;
-    ui.populateExperienceDetailPage(null);
-}
-
-async function handleExperienceCardClick(e) {
-    const card = e.target.closest('.experience-card');
-    if (!card) return;
-    const favoriteButton = e.target.closest('.favorite-toggle');
-    const expId = card.dataset.experienceId;
-    if (favoriteButton) {
-        const experience = localExperiencesCache.find(exp => exp.id === expId);
-        if (experience) {
-            try {
-                await api.toggleExperienceFavorite(currentUser.uid, expId, experience.isFavorite);
-            } catch (error) {
-                ui.showToast("Could not update favorite status", "error");
+function setupRealtimeListeners(userId) {
+    const userUnsubscribe = api.setupRealtimeListener(`users/${userId}`, (doc) => {
+        if (doc) {
+            userProfileData = { ...doc, uid: userId };
+            ui.applyTheme(userProfileData.preferences?.theme || 'system');
+            ui.renderUserInfo(userProfileData);
+            if(appState.ui.currentPage === 'settings') {
+                ui.renderSettingsPage(userProfileData);
             }
         }
-    } else {
-        const experience = localExperiencesCache.find(exp => exp.id === expId);
-        if (experience) {
-            currentExperienceId = experience.id;
-            ui.populateExperienceDetailPage(experience);
+    });
+
+    const jobsUnsubscribe = api.setupRealtimeListener(`users/${userId}/jobs`, (docs) => {
+        appState.jobs = docs.map(job => ({...job, closingDate: job.closingDate?.toDate(), followUpDate: job.followUpDate?.toDate(), interviewDate: job.interviewDate?.toDate()}));
+        if (appState.ui.currentPage === 'dashboard') {
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard);
         }
+    }, { orderBy: ["createdAt", "desc"] });
+
+    const experiencesUnsubscribe = api.setupRealtimeListener(`users/${userId}/experiences`, (docs) => {
+        appState.experiences = docs;
+        if (appState.ui.currentPage === 'experienceBook') {
+            ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
+        }
+    });
+
+    const documentsUnsubscribe = api.setupRealtimeListener(`users/${userId}/documents`, (docs) => {
+        appState.documents = docs.map(doc => ({...doc, uploadedAt: doc.uploadedAt?.toDate() }));
+        if (appState.ui.currentPage === 'documents') {
+            ui.renderDocumentsPage(appState.documents);
+        }
+    });
+    
+    realtimeListeners.push(userUnsubscribe, jobsUnsubscribe, experiencesUnsubscribe, documentsUnsubscribe);
+}
+
+// --- NAVIGATION ---
+
+function navigateTo(hash) {
+    if (typeof currentPageCleanup === 'function') {
+        currentPageCleanup(); // Clean up old listeners before navigating
+    }
+
+    const pageId = hash.substring(1).split('/')[0] || 'dashboard';
+    appState.ui.currentPage = pageId;
+    
+    ui.setActivePage(pageId);
+    ui.updateFAB(pageId);
+
+    switch (pageId) {
+        case 'dashboard':
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+            currentPageCleanup = setupDashboardListeners();
+            break;
+        case 'experienceBook':
+            ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
+            currentPageCleanup = setupExperienceBookListeners();
+            break;
+        case 'documents':
+            ui.renderDocumentsPage(appState.documents);
+            currentPageCleanup = setupDocumentsListeners();
+            break;
+        case 'settings':
+            ui.renderSettingsPage(userProfileData);
+            currentPageCleanup = setupSettingsListeners();
+            break;
+        case 'applicationDetail':
+            const jobId = hash.split('/')[1];
+            appState.ui.activeJobId = jobId;
+            const jobData = jobId === 'new' ? null : appState.jobs.find(j => j.id === jobId);
+            ui.renderApplicationDetailPage(jobData);
+            currentPageCleanup = setupApplicationDetailListeners();
+            break;
+        default:
+            window.location.hash = '#dashboard';
+            break;
     }
 }
 
-async function handleSaveExperience(e) {
-    e.preventDefault();
-    const expData = {
-        title: document.getElementById('exp-title').textContent,
-        paragraph: document.getElementById('exp-paragraph').value,
-        tags: document.getElementById('exp-tags').value.split(',').map(t => t.trim()).filter(Boolean)
+// --- EVENT LISTENER MANAGEMENT ---
+
+function attachGlobalEventListeners() {
+    window.addEventListener('hashchange', () => navigateTo(window.location.hash));
+    document.getElementById('app-sidebar').addEventListener('click', handleSidebarClicks);
+    document.getElementById('global-header').addEventListener('click', handleHeaderClicks);
+    document.getElementById('fab').addEventListener('click', handleFabClick);
+}
+
+function setupDashboardListeners() {
+    const dashboardEl = document.getElementById('dashboard');
+    dashboardEl.addEventListener('click', handleDashboardClicks);
+    const searchInput = document.getElementById('search-bar');
+    const debouncedSearch = utils.debounce(handleDashboardSearch, 300);
+    searchInput.addEventListener('input', debouncedSearch);
+    return () => {
+        dashboardEl.removeEventListener('click', handleDashboardClicks);
+        searchInput.removeEventListener('input', debouncedSearch);
     };
-    try {
-        await api.saveExperience(currentUser.uid, expData, currentExperienceId);
-        ui.showToast(currentExperienceId ? "Experience updated!" : "Experience saved!");
-        ui.navigateToPage('experienceBook');
-    } catch(error){
-        ui.showToast("Save failed", "error");
+}
+
+function setupSettingsListeners() {
+    const settingsEl = document.getElementById('settings');
+    settingsEl.addEventListener('click', handleSettingsClicks);
+    const profileUpload = document.getElementById('profile-image-upload');
+    profileUpload.addEventListener('change', handleProfileImageUpload);
+    return () => {
+        settingsEl.removeEventListener('click', handleSettingsClicks);
+        profileUpload.removeEventListener('change', handleProfileImageUpload);
+    };
+}
+
+function setupApplicationDetailListeners() {
+    const detailPageEl = document.getElementById('applicationDetailPage');
+    detailPageEl.addEventListener('click', handleApplicationDetailClicks);
+    return () => {
+        detailPageEl.removeEventListener('click', handleApplicationDetailClicks);
+    };
+}
+
+function setupExperienceBookListeners() { /* Placeholder for future implementation */ return () => {}; }
+function setupDocumentsListeners() { /* Placeholder for future implementation */ return () => {}; }
+
+
+// --- DELEGATED & GLOBAL EVENT HANDLERS ---
+
+function handleSidebarClicks(e) {
+    const link = e.target.closest('.nav-link');
+    if (link) {
+        window.location.hash = link.getAttribute('href');
+    }
+    if(e.target.closest('#sidebar-toggle-btn')) {
+        appState.ui.isSidebarCollapsed = !appState.ui.isSidebarCollapsed;
+        ui.toggleSidebar(appState.ui.isSidebarCollapsed);
     }
 }
 
-async function handleDeleteExperience() {
-    if (currentExperienceId && confirm("Delete this experience?")) {
-        try {
-            await api.deleteExperience(currentUser.uid, currentExperienceId);
-            ui.showToast("Experience deleted.", "error");
-            ui.navigateToPage('experienceBook');
-        } catch(error) {
-            ui.showToast("Deletion failed", "error");
+function handleHeaderClicks(e) {
+    if (e.target.closest('#logout-btn')) {
+        signOut(auth);
+    }
+    if (e.target.closest('#nav-user-menu')) {
+        ui.toggleUserDropdown();
+    }
+}
+
+function handleFabClick() {
+    switch (appState.ui.currentPage) {
+        case 'dashboard':
+            window.location.hash = '#applicationDetail/new';
+            break;
+        case 'experienceBook':
+            // ui.openExperienceInspector();
+            break;
+        case 'documents':
+            const docInput = document.getElementById('master-doc-file-input');
+            docInput.onchange = handleMasterDocumentUpload;
+            docInput.click();
+            break;
+    }
+}
+
+
+// --- PAGE-SPECIFIC EVENT HANDLERS ---
+
+function handleDashboardClicks(e) {
+    if (e.target.closest('#toggle-filters-btn')) {
+        appState.ui.isFilterPanelOpen = !appState.ui.isFilterPanelOpen;
+        ui.toggleFilterPanel(appState.ui.isFilterPanelOpen);
+    }
+    if (e.target.closest('#close-filter-panel-btn')) {
+        appState.ui.isFilterPanelOpen = false;
+        ui.toggleFilterPanel(false);
+    }
+    if (e.target.closest('#clear-filters-btn')) {
+        appState.filters.dashboard = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' };
+        ui.resetDashboardFilters();
+        ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+    }
+
+    const row = e.target.closest('.interactive-row');
+    if (row) {
+        const jobId = row.dataset.jobId;
+        const job = appState.jobs.find(j => j.id === jobId);
+        if (e.target.closest('.expand-icon')) {
+            ui.toggleRowExpansion(row, job);
+        } else if (e.target.closest('.actions-menu-btn')) {
+            // Future: ui.showActionsMenu(target, job);
+        } else {
+            window.location.hash = `#applicationDetail/${jobId}`;
         }
     }
 }
 
-function handleCopyExperience() {
-    navigator.clipboard.writeText(document.getElementById('exp-paragraph').value)
-        .then(() => ui.showToast('Response copied to clipboard'))
-        .catch(() => ui.showToast('Could not copy text.', 'error'));
+function handleSettingsClicks(e) {
+    const settingsLink = e.target.closest('.settings-link');
+    if (settingsLink) {
+        e.preventDefault();
+        ui.setActiveSettingsSection(settingsLink.getAttribute('href').substring(1));
+    }
+    
+    const themeButton = e.target.closest('.segment-btn');
+    if (themeButton) {
+        const theme = themeButton.dataset.theme;
+        ui.applyTheme(theme);
+        api.updateUserDocument(currentUser.uid, { 'preferences.theme': theme });
+    }
+
+    if(e.target.closest('#save-profile-btn')) handleSaveProfile();
+    if(e.target.closest('#update-password-btn')) handleUpdatePassword();
+    if(e.target.closest('#interactive-avatar')) document.getElementById('profile-image-upload').click();
+}
+
+function handleApplicationDetailClicks(e) {
+    if(e.target.closest('#save-app-btn')) handleSaveApplication();
+    if(e.target.closest('#delete-app-btn')) handleDeleteApplication();
+    if(e.target.closest('#duplicate-app-btn')) handleDuplicateApplication();
+}
+
+
+// --- ACTION LOGIC ---
+
+function handleDashboardSearch(e) {
+    appState.filters.dashboard.search = e.target.value;
+    ui.renderDashboard(appState.jobs, appState.filters.dashboard);
 }
 
 async function handleSaveProfile() {
-    if (!currentUser) return;
-    const fullName = document.getElementById('profile-name').value;
+    const newName = document.getElementById('profile-name').value;
+    if (!newName.trim()) { ui.showToast("Name cannot be empty.", "error"); return; }
+    ui.showToast("Updating profile...");
     try {
-        await api.updateUserProfileName(currentUser, fullName);
-        ui.showToast("Name updated!");
-    } catch (error) {
-        ui.showToast("Name update failed", "error");
-    }
+        await api.updateAuthProfile({ displayName: newName });
+        await api.updateUserDocument(currentUser.uid, { fullName: newName });
+        ui.showToast("Profile saved successfully!", "success");
+    } catch (err) { ui.showToast(`Error: ${err.message}`, "error"); }
 }
 
 async function handleUpdatePassword() {
-    if (!currentUser) return;
     const newPass = document.getElementById('profile-new-password').value;
     const confirmPass = document.getElementById('profile-confirm-password').value;
-    if (newPass !== confirmPass) return ui.showToast("Passwords do not match.", "error");
-    if (newPass.length < 6) return ui.showToast("Password must be at least 6 characters.", "error");
+    if (newPass.length < 6) { ui.showToast("Password must be at least 6 characters.", "error"); return; }
+    if (newPass !== confirmPass) { ui.showToast("Passwords do not match.", "error"); return; }
+    ui.showToast("Updating password...");
     try {
-        await api.updateUserPassword(currentUser, newPass);
-        ui.showToast("Password updated successfully!");
+        await api.updateUserPassword(newPass);
+        ui.showToast("Password updated successfully!", "success");
         document.getElementById('profile-new-password').value = '';
         document.getElementById('profile-confirm-password').value = '';
-    } catch (error) {
-        ui.showToast("Update failed. Re-login may be required.", "error");
-    }
+    } catch(err) { ui.showToast(`Error: ${err.message}. Re-login may be required.`, "error"); }
 }
 
 async function handleProfileImageUpload(e) {
     const file = e.target.files[0];
-    if (!file || !currentUser) return;
+    if (!file) return;
+    ui.showToast("Uploading image...");
     try {
-        await api.uploadProfileImage(currentUser, file, (progress) => {
-            ui.showToast(`Uploading: ${Math.round(progress)}%`);
-        });
-        ui.showToast("Profile image updated!");
-    } catch (error) {
-        ui.showToast("Upload failed", "error");
-    }
+        const photoURL = await api.uploadFile(`users/${currentUser.uid}/profileImage`, file);
+        await api.updateAuthProfile({ photoURL });
+        await api.updateUserDocument(currentUser.uid, { photoURL });
+        ui.showToast("Profile image updated!", "success");
+    } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
 }
 
 async function handleMasterDocumentUpload(e) {
-    const file = e.target.files[0];
-    if (!file || !currentUser) return;
+    const files = e.target.files;
+    if (!files.length) return;
+    ui.showToast(`Uploading ${files.length} document(s)...`);
     try {
-        await api.uploadMasterDocument(currentUser.uid, file);
-        ui.showToast("Document uploaded!");
-    } catch (error) {
-        ui.showToast("Upload failed", "error");
-    }
+        for (const file of files) {
+            const path = `users/${currentUser.uid}/documents/${Date.now()}_${file.name}`;
+            const downloadURL = await api.uploadFile(path, file);
+            const docData = { name: file.name, url: downloadURL, path, size: file.size, type: file.type, uploadedAt: new Date() };
+            await api.addDocument(`users/${currentUser.uid}/documents`, docData);
+        }
+        ui.showToast("Upload complete!", "success");
+    } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
 }
 
-async function handleDeleteMasterDoc(e) {
-    const target = e.target.closest('.delete-doc-btn');
-    if (!target) return;
-    const docId = target.dataset.docId;
-    if (confirm(`Permanently delete this document?`)) {
+async function handleSaveApplication() {
+    const formData = ui.getApplicationFormData();
+    if (!formData.jobTitle) { ui.showToast("Job Title is required.", "error"); return; }
+    const isNew = !appState.ui.activeJobId || appState.ui.activeJobId === 'new';
+    const docPath = `users/${currentUser.uid}/jobs`;
+    ui.showToast(isNew ? "Creating application..." : "Updating application...");
+    try {
+        if (isNew) {
+            formData.createdAt = new Date();
+            await api.addDocument(docPath, formData);
+            ui.showToast("Application created!", "success");
+        } else {
+            await api.updateDocument(`${docPath}/${appState.ui.activeJobId}`, formData);
+            ui.showToast("Application updated!", "success");
+        }
+        window.location.hash = '#dashboard';
+    } catch(err) { ui.showToast(`Could not save: ${err.message}`, "error"); }
+}
+
+async function handleDeleteApplication() {
+    const idToDelete = appState.ui.activeJobId;
+    if (!idToDelete) return;
+    if (confirm("Are you sure you want to permanently delete this application? This action cannot be undone.")) {
         try {
-            const docToDelete = localDocumentsCache.find(d => d.id === docId);
-            await api.deleteMasterDocument(currentUser.uid, docToDelete);
-            ui.showToast("Document deleted", "error");
-        } catch (error) {
-            ui.showToast("Deletion failed", "error");
-        }
+            await api.deleteDocument(`users/${currentUser.uid}/jobs/${idToDelete}`);
+            ui.showToast("Application deleted.", "success");
+            window.location.hash = '#dashboard';
+        } catch (err) { ui.showToast(`Deletion failed: ${err.message}`, "error"); }
     }
 }
 
-async function handleDeleteAccount() {
-    if (!currentUser) return;
-    const confirmation = prompt('This action is permanent and cannot be undone. You will lose all your data. Type "DELETE" to confirm.');
-    if (confirmation === "DELETE") {
-        try {
-            await api.deleteUserAccount(currentUser);
-            ui.showToast("Account deleted successfully.", "error");
-            // Auth listener will handle cleanup and redirect to login page.
-        } catch(error) {
-            ui.showToast("Could not delete account. Please re-login and try again.", "error");
-        }
-    } else {
-        ui.showToast("Account deletion cancelled.");
-    }
-}
-
-function handleFilterChange(e) {
-    const key = e.target.id.replace('-filter','').replace('role-level','roleLevel').replace('sort-by','sortBy');
-    currentFilters[key] = e.target.value;
-    const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') };
-    ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors);
-}
-
-function handleClearFilters() {
-    document.getElementById('filter-controls').querySelectorAll('select, input').forEach(el => {
-        if (el.id === 'sort-by-filter') el.value = 'default';
-        else if(el.type === 'search') el.value = '';
-        else el.value = 'all';
-    });
-    currentFilters = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default', roleLevel: 'all' };
-    const uiSelectors = { calendarViewContainer: document.getElementById('calendar-view-container') };
-    ui.masterDashboardRender(localJobsCache, currentFilters, isSelectMode, selectedJobIds, calendar, uiSelectors);
-}
-
-function handleTagFilterClick(e) {
-    if (!e.target.matches('.tag-filter-btn')) return;
-    const tag = e.target.dataset.tag;
-    if (tag === 'all') activeExperienceTags = [];
-    else {
-        const index = activeExperienceTags.indexOf(tag);
-        if (index > -1) activeExperienceTags.splice(index, 1);
-        else activeExperienceTags.push(tag);
-    }
-    ui.renderExperienceBook(localExperiencesCache, activeExperienceTags);
-}
-
-function enterSelectMode() { isSelectMode = true; document.getElementById('selection-action-bar').classList.remove('hidden'); const uiSelectors = { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }; ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, uiSelectors); }
-function exitSelectMode() { isSelectMode = false; selectedJobIds.clear(); updateSelectionCount(); document.getElementById('selection-action-bar').classList.add('hidden'); const uiSelectors = { jobsTableBody: document.getElementById('jobs-table-body'), jobsTableHeader: document.querySelector('#table-view-container thead') }; ui.renderTable(localJobsCache, currentFilters, isSelectMode, selectedJobIds, uiSelectors); }
-function updateSelectionCount() { document.getElementById('selected-count').textContent = selectedJobIds.size; }
-function handleSelectionChange(jobId, isChecked) { if (isChecked) selectedJobIds.add(jobId); else selectedJobIds.delete(jobId); updateSelectionCount(); const row = document.querySelector(`#jobs-table-body tr[data-job-id="${jobId}"]`); if (row) row.classList.toggle('selected-row', isChecked); }
-function handleDeleteSelected() { if (selectedJobIds.size > 0) ui.showDeleteModal(selectedJobIds.size); }
-async function executeDeleteSelected() { if (!currentUser || selectedJobIds.size === 0) return; try { await api.deleteMultipleJobs(currentUser.uid, selectedJobIds); ui.showToast(`${selectedJobIds.size} job(s) deleted.`, "error"); } catch (error) { ui.showToast("Bulk delete failed.", "error"); } finally { ui.hideDeleteModal(); exitSelectMode(); } }
-function handleSelectAll(e) { if(e.target.id === 'select-all-checkbox') { const isChecked = e.target.checked; const jobsToSelect = ui.sortAndFilterJobs(localJobsCache, currentFilters); jobsToSelect.forEach(job => handleSelectionChange(job.id, isChecked)); document.getElementById('jobs-table-body').querySelectorAll('.row-checkbox').forEach(box => box.checked = isChecked); } }
-
-function handleAttachFromRepo() {
-    ui.populateAttachDocModal(localDocumentsCache);
-    ui.showAttachDocModal();
-}
-
-function handleAttachDocSelect(e) {
-    const target = e.target.closest('li');
-    if(!target) return;
-    stagedDocuments.push({ id: Date.now(), type: 'submitted', name: target.dataset.docName, url: target.dataset.docUrl });
-    ui.renderDocuments(stagedDocuments);
-    ui.hideAttachDocModal();
-}
-
-function checkJobIdUniqueness() {
-    const jobIdInput = document.getElementById('detail-job-id');
-    const newJobId = jobIdInput.textContent.trim();
-    const newAppType = document.getElementById('detail-application-type').value;
-    const jobIdError = document.getElementById('detail-job-id-error');
-    if (!newJobId) {
-        jobIdError.classList.add('hidden');
-        jobIdInput.classList.remove('input-error');
-        return;
-    }
-    const isDuplicate = localJobsCache.some(j => j.jobId === newJobId && j.applicationType === newAppType && j.id !== currentJobId);
-    jobIdError.classList.toggle('hidden', !isDuplicate);
-    jobIdInput.classList.toggle('input-error', isDuplicate);
-}
-
-function handleToggleFilters() { document.getElementById('filter-controls').classList.toggle('collapsed'); }
-function handleTabSwitch(e) { const btn = e.target.closest('.tab-btn'); if(btn) { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden')); btn.classList.add('active'); document.getElementById(btn.dataset.target).classList.remove('hidden'); } }
-
-function handleOfficialDocUpload(e) {
-    const file = e.target.files[0];
-    if (!file || !currentUser) return;
-    stagedDocuments.push({ id: Date.now(), type: 'official', name: file.name, file: file });
-    ui.renderDocuments(stagedDocuments);
-    ui.showToast(`${file.name} staged for upload.`);
-}
-
-function handleWorkbenchClick(e) {
-    const target = e.target;
-    if (target.matches('.link-experience-btn, .link-experience-btn *')) {
-        currentWorkbenchTarget = target.closest('.workbench-item').querySelector('textarea');
-        ui.populateLinkExperienceModal(localExperiencesCache);
-        ui.showLinkExperienceModal();
-    }
-    if (target.matches('.remove-criterion-btn, .remove-criterion-btn *')) {
-        const item = target.closest('.workbench-item');
-        if(confirm("Remove this criterion?")) item.remove();
-    }
-}
-
-function handleAddCriterion() {
-    stagedCriteria.push({ criterion: "New Criterion (click to edit)", response: "" });
-    ui.renderWorkbench(stagedCriteria);
-}
-
-function handleLinkExperienceSelect(e) {
-    const target = e.target.closest('li');
-    if (target && target.dataset.experienceId) {
-        const exp = localExperiencesCache.find(ex => ex.id === target.dataset.experienceId);
-        if (exp && currentWorkbenchTarget) {
-            currentWorkbenchTarget.value = exp.paragraph;
-        }
-        ui.hideLinkExperienceModal();
+function handleDuplicateApplication() {
+    const idToDup = appState.ui.activeJobId;
+    if (!idToDup) return;
+    const originalJob = appState.jobs.find(j => j.id === idToDup);
+    if (originalJob) {
+        const newJobData = { ...originalJob };
+        delete newJobData.id; // Ensure it's treated as a new document
+        newJobData.jobTitle = `${originalJob.jobTitle} (Copy)`;
+        newJobData.status = 'Identified'; // Reset status
+        appState.ui.activeJobId = 'new'; // Set mode to new
+        ui.renderApplicationDetailPage(newJobData); // Re-render the page with copied data
+        ui.showToast("Application duplicated. Editing the new copy.");
     }
 }
