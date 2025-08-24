@@ -1,7 +1,7 @@
 /* ---
-   RMO Job-Flow - style.css (v2.0 - Blueprint Realized)
+   RMO Job-Flow - style.css (v2.0 - Blueprint Realized & Corrected)
    Description: The complete, final stylesheet implementing all premium features,
-   layouts, components, and themes as per the final design blueprint.
+   layouts, components, and themes, with specific fixes for observed rendering bugs.
 --- */
 
 /* ==========================================================================
@@ -54,28 +54,14 @@ html[data-theme="dark"] {
     --info-purple-light: rgba(155, 89, 182, 0.15);
 }
 
-/* Auto-detect system theme */
 @media (prefers-color-scheme: dark) {
-    html[data-theme="system"] {
-        --primary-blue: #3498db;
-        --primary-blue-dark: #5dade2;
-        --background-primary: #1a1a1a;
-        --background-secondary: #242424;
-        --surface-primary: #2c2c2c;
-        --surface-secondary: #3a3a3a;
-        --text-primary: #f1f3f5;
-        --text-secondary: #aeb5bc;
-        --border-primary: #4a4a4a;
-        --border-secondary: #3a3a3a;
-        --shadow-soft: 0 4px 6px rgba(0, 0, 0, 0.2);
-        --shadow-medium: 0 5px 15px rgba(0, 0, 0, 0.25);
-        --shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.3);
-        --info-purple-light: rgba(155, 89, 182, 0.15);
+    html[data-theme="system"]:root {
+        --primary-blue: #3498db; --primary-blue-dark: #5dade2; --background-primary: #1a1a1a; --background-secondary: #242424; --surface-primary: #2c2c2c; --surface-secondary: #3a3a3a; --text-primary: #f1f3f5; --text-secondary: #aeb5bc; --border-primary: #4a4a4a; --border-secondary: #3a3a3a; --shadow-soft: 0 4px 6px rgba(0, 0, 0, 0.2); --shadow-medium: 0 5px 15px rgba(0, 0, 0, 0.25); --shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.3); --info-purple-light: rgba(155, 89, 182, 0.15);
     }
 }
 
 /* ==========================================================================
-   2. GENERAL STYLES & RESETS
+   2. GENERAL STYLES & UTILITIES
    ========================================================================== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -89,227 +75,90 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
-/* ==========================================================================
-   3. GLOBAL APP LAYOUT & SIDEBAR
-   ========================================================================== */
-#main-app-view {
-    display: flex;
-    height: 100vh;
-}
-
-#app-sidebar {
-    width: var(--sidebar-width-expanded);
-    background-color: var(--surface-primary);
-    border-right: 1px solid var(--border-primary);
-    display: flex;
-    flex-direction: column;
-    padding: 20px 15px;
-    transition: width 0.3s var(--ease-out-cubic);
-}
-
-#app-sidebar.collapsed {
-    width: var(--sidebar-width-collapsed);
-}
-
-.sidebar-header .nav-logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 1.5rem;
-    padding: 0 10px;
-    color: var(--primary-blue);
-    margin-bottom: 30px;
-}
-.nav-logo h1 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-    opacity: 1;
-    transition: opacity 0.3s ease;
-}
-#app-sidebar.collapsed .nav-logo h1 {
-    opacity: 0;
-    pointer-events: none;
-}
-
-.sidebar-nav {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.nav-link {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 12px 10px;
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--text-secondary);
-    font-weight: 500;
-    white-space: nowrap;
-    transition: background-color 0.2s, color 0.2s;
-}
-.nav-link i {
-    font-size: 1.1rem;
-    width: 20px;
-    text-align: center;
-}
-.nav-link:hover {
-    background-color: var(--background-secondary);
-    color: var(--text-primary);
-}
-.nav-link.active {
-    background-color: var(--primary-blue);
-    color: white;
-}
-
-#app-sidebar.collapsed .nav-link span {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s;
-}
-
-.sidebar-footer {
-    padding-top: 20px;
-    border-top: 1px solid var(--border-secondary);
-}
-#sidebar-toggle-btn {
-    width: 100%;
-    justify-content: flex-end;
-}
-#sidebar-toggle-btn i {
-    transition: transform 0.3s var(--ease-out-cubic);
-}
-#app-sidebar.collapsed #sidebar-toggle-btn i {
-    transform: rotate(180deg);
+/* CRITICAL FIX: Robust .hidden class */
+.hidden {
+    display: none !important;
 }
 
 /* ==========================================================================
-   4. MAIN WORKSPACE & GLOBAL HEADER
+   3. AUTHENTICATION VIEW
    ========================================================================== */
-#main-workspace {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow-y: auto;
-    transition: margin-left 0.3s var(--ease-out-cubic);
-}
+#auth-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; align-items: center; justify-content: center; background-color: var(--background-primary); }
+.login-container { background-color: var(--surface-primary); padding: 40px; border-radius: 8px; box-shadow: var(--shadow-medium); text-align: center; width: 100%; max-width: 400px; }
+.login-header { margin-bottom: 30px; }
+.login-icon-wrapper { width: 70px; height: 70px; margin: 0 auto 20px; background-color: var(--primary-blue); color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+.login-header h1 { font-size: 1.6rem; }
+.auth-form .form-group { margin-bottom: 20px; text-align: left; }
+.auth-switch-text { margin-top: 25px; font-size: 0.9rem; }
+.status-message { margin-top: 15px; font-weight: 500; }
+.status-message.error { color: var(--danger-red); }
+.status-message.success { color: var(--success-green); }
 
-#global-header {
-    height: var(--header-height);
-    background-color: var(--surface-primary);
-    border-bottom: 1px solid var(--border-primary);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 25px;
-    position: sticky;
-    top: 0;
-    z-index: 99;
-}
+
+/* ==========================================================================
+   4. GLOBAL APP LAYOUT & SIDEBAR
+   ========================================================================== */
+#main-app-view { display: flex; height: 100vh; }
+#app-sidebar { width: var(--sidebar-width-expanded); background-color: var(--surface-primary); border-right: 1px solid var(--border-primary); display: flex; flex-direction: column; padding: 20px 15px; transition: width 0.3s var(--ease-out-cubic); }
+#app-sidebar.collapsed { width: var(--sidebar-width-collapsed); }
+.sidebar-header .nav-logo { display: flex; align-items: center; gap: 12px; font-size: 1.5rem; padding: 0 10px; color: var(--primary-blue); margin-bottom: 30px; }
+.nav-logo h1 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; opacity: 1; transition: opacity 0.3s ease; }
+#app-sidebar.collapsed .nav-logo h1 { opacity: 0; pointer-events: none; }
+.sidebar-nav { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
+.nav-link { display: flex; align-items: center; gap: 15px; padding: 12px 10px; border-radius: 6px; text-decoration: none; color: var(--text-secondary); font-weight: 500; white-space: nowrap; transition: background-color 0.2s, color 0.2s; }
+.nav-link i { font-size: 1.1rem; width: 20px; text-align: center; }
+.nav-link:hover { background-color: var(--background-secondary); color: var(--text-primary); }
+.nav-link.active { background-color: var(--primary-blue); color: white; }
+#app-sidebar.collapsed .nav-link span { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.sidebar-footer { padding-top: 20px; border-top: 1px solid var(--border-secondary); }
+#sidebar-toggle-btn { width: 100%; justify-content: flex-end; }
+#sidebar-toggle-btn i { transition: transform 0.3s var(--ease-out-cubic); }
+#app-sidebar.collapsed #sidebar-toggle-btn i { transform: rotate(180deg); }
+
+/* ==========================================================================
+   5. MAIN WORKSPACE & GLOBAL HEADER
+   ========================================================================== */
+#main-workspace { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; position: relative; }
+#global-header { height: var(--header-height); background-color: var(--surface-primary); border-bottom: 1px solid var(--border-primary); display: flex; align-items: center; justify-content: space-between; padding: 0 25px; flex-shrink: 0; z-index: 99; }
 #mobile-menu-btn { display: none; }
 .header-user-area { display: flex; align-items: center; gap: 15px; }
-
 .nav-user { display: flex; align-items: center; gap: 15px; }
 .nav-user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-primary); }
 .nav-user-menu { position: relative; cursor: pointer; }
 .dropdown-menu { position: absolute; top: 120%; right: 0; background-color: var(--surface-primary); border-radius: 8px; box-shadow: var(--shadow-medium); padding: 8px; min-width: 200px; z-index: 100; border: 1px solid var(--border-primary); }
 .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 4px; color: var(--text-primary); text-decoration: none; }
 .dropdown-item:hover { background-color: var(--background-secondary); }
-
-#page-content-container {
-    padding: 30px;
-    flex-grow: 1;
-}
+#page-content-container { padding: 30px; flex-grow: 1; overflow-y: auto; }
 
 /* ==========================================================================
-   5. DASHBOARD & ITS COMPONENTS
+   6. DASHBOARD & ITS COMPONENTS
    ========================================================================== */
-.dashboard-layout {
-    display: flex;
-    gap: 20px;
-}
-#dashboard-main-content {
-    flex-grow: 1;
-    transition: width 0.3s var(--ease-out-cubic);
-}
-
-.toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 15px;
-}
+.dashboard-layout { display: flex; gap: 20px; }
+#dashboard-main-content { flex-grow: 1; transition: width 0.3s var(--ease-out-cubic); }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
 .page-title { font-size: 1.8rem; font-weight: 600; }
 .toolbar-actions { display: flex; align-items: center; gap: 10px; }
 .view-switcher { display: flex; background-color: var(--background-secondary); border-radius: 6px; padding: 4px; }
 .view-btn { background: none; border: none; padding: 6px 12px; font-weight: 500; border-radius: 4px; }
 .view-btn.active { background-color: var(--surface-primary); color: var(--primary-blue); box-shadow: var(--shadow-soft); }
-
-/* Table Styles */
 .table-container { background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border-primary); white-space: nowrap; vertical-align: middle; }
 th { color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; }
-tbody tr { transition: background-color 0.2s; }
-
-.interactive-row .actions-col .icon-btn { opacity: 0; transition: opacity 0.2s; }
+.interactive-row .actions-col .icon-btn { opacity: 1; } /* Always show on touch */
 .interactive-row:hover { background-color: var(--background-secondary); }
-.interactive-row:hover .actions-col .icon-btn { opacity: 1; }
-
 .expand-col, .actions-col { width: 50px; text-align: center; }
 .expand-col .icon-btn i { transition: transform 0.3s var(--ease-out-cubic); }
 .interactive-row.expanded .expand-col .icon-btn i { transform: rotate(90deg); }
-
 .secondary-data-row { display: none; }
 .secondary-data-row.visible { display: table-row; }
 .secondary-data-cell { padding: 20px 30px !important; background-color: var(--background-secondary); }
 .secondary-data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-
-/* Filter Panel (Inspector) */
-#filter-panel {
-    width: var(--inspector-width);
-    background-color: var(--surface-primary);
-    border: 1px solid var(--border-primary);
-    border-radius: 8px;
-    transition: width 0.3s var(--ease-out-cubic), opacity 0.3s, margin-left 0.3s var(--ease-out-cubic);
-}
-#filter-panel.collapsed {
-    width: 0;
-    opacity: 0;
-    padding: 0;
-    margin-left: -20px;
-    overflow: hidden;
-    border: none;
-}
+#filter-panel { width: var(--inspector-width); background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; flex-shrink: 0; transform: translateX(0); transition: transform 0.3s var(--ease-out-cubic), width 0.3s var(--ease-out-cubic); }
+#filter-panel.collapsed { transform: translateX(-100%); width: 0; padding: 0; border: none; overflow: hidden; }
 .inspector-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-primary); }
 .inspector-header h3 { font-size: 1.1rem; }
 .inspector-content { padding: 15px; display: flex; flex-direction: column; gap: 15px; }
-
-/* ==========================================================================
-   6. APPLICATION DETAIL PAGE
-   ========================================================================== */
-.detail-summary-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
-.detail-summary-header h2 { font-size: 2rem; margin: 0; }
-.detail-summary-header p { color: var(--text-secondary); font-size: 1.1rem; }
-
-.detail-workspace { display: flex; gap: 30px; }
-.detail-nav-pane { width: 220px; flex-shrink: 0; }
-.in-page-nav { display: flex; flex-direction: column; gap: 5px; margin-bottom: 30px; }
-.in-page-link { padding: 10px; border-radius: 5px; font-weight: 500; color: var(--text-secondary); text-decoration: none; }
-.in-page-link.active, .in-page-link:hover { background-color: var(--background-secondary); color: var(--text-primary); }
-.key-info-section { font-size: 0.9rem; }
-.key-info-section h3 { font-size: 1rem; margin-bottom: 15px; }
-
-.detail-content-pane { flex-grow: 1; }
-.detail-panel { background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 30px; }
-.detail-footer { display: flex; justify-content: space-between; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--border-primary); }
 
 /* ==========================================================================
    7. SETTINGS PAGE
@@ -321,8 +170,6 @@ tbody tr { transition: background-color 0.2s; }
 .settings-content { flex-grow: 1; }
 .settings-section { background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 30px; }
 .settings-section > h3 { font-size: 1.5rem; margin-bottom: 25px; border-bottom: 1px solid var(--border-primary); padding-bottom: 15px; }
-
-/* Profile Component */
 .profile-component { display: flex; gap: 30px; align-items: flex-start; }
 .interactive-avatar { position: relative; width: 120px; height: 120px; cursor: pointer; border-radius: 50%; }
 .interactive-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--border-primary); }
@@ -330,16 +177,13 @@ tbody tr { transition: background-color 0.2s; }
 .interactive-avatar:hover .avatar-overlay { opacity: 1; }
 .profile-details-zone { flex-grow: 1; }
 .microcopy { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; }
-
-/* Theme Selector */
 .segmented-control { display: flex; background-color: var(--background-secondary); border-radius: 6px; padding: 4px; }
 .segment-btn { flex-grow: 1; background: none; border: none; padding: 8px; font-weight: 500; border-radius: 4px; }
 .segment-btn.active { background-color: var(--surface-primary); color: var(--primary-blue); box-shadow: var(--shadow-soft); }
 
 /* ==========================================================================
-   8. GENERIC COMPONENTS (Buttons, Forms, Modals, etc.)
+   8. GENERIC COMPONENTS
    ========================================================================== */
-/* Buttons */
 button { font-family: inherit; font-size: 1rem; border-radius: 6px; border: 1px solid var(--border-primary); cursor: pointer; transition: all 0.2s; font-weight: 500; }
 .primary-action-btn { background-color: var(--primary-blue); color: white; border-color: var(--primary-blue); padding: 10px 20px; }
 .primary-action-btn:hover { background-color: var(--primary-blue-dark); }
@@ -350,123 +194,62 @@ button { font-family: inherit; font-size: 1rem; border-radius: 6px; border: 1px 
 .icon-btn { background: none; border: none; color: var(--text-secondary); width: 32px; height: 32px; border-radius: 50%; }
 .icon-btn:hover { background-color: var(--background-secondary); color: var(--text-primary); }
 .badge { background-color: var(--primary-blue); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 5px; }
-
-/* Forms */
 .form-group { margin-bottom: 20px; }
 label { display: block; margin-bottom: 8px; font-weight: 500; }
 input, select, textarea { width: 100%; padding: 12px; background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-primary); }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); }
-
-/* Floating Action Button (FAB) */
+.tag { padding: 4px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize; display: inline-block; white-space: nowrap; }
+.status-identified { background-color: var(--border-secondary); color: var(--text-secondary); }
+.status-preparing-application { background-color: #f1c40f; color: white; }
+.status-applied { background-color: var(--primary-blue); color: white; }
+.status-interview-offered { background-color: var(--info-purple); color: white; }
+.status-offer-received { background-color: var(--success-green); color: white; }
+.status-unsuccessful, .status-closed, .status-offer-declined { background-color: var(--text-secondary); color: white; }
 .fab { position: fixed; bottom: 30px; right: 30px; width: 56px; height: 56px; border-radius: 50%; background-color: var(--primary-blue); color: white; font-size: 1.8rem; border: none; box-shadow: var(--shadow-strong); z-index: 100; display: flex; justify-content: center; align-items: center; transition: transform 0.2s var(--ease-out-cubic); }
 .fab:hover { transform: scale(1.1); background-color: var(--primary-blue-dark); }
-
-/* Toast Notifications */
 #toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
 .toast { padding: 12px 25px; border-radius: 30px; color: white; font-weight: 500; box-shadow: var(--shadow-medium); opacity: 0; transform: translateY(20px); transition: all 0.4s var(--ease-out-cubic); }
 .toast.show { opacity: 1; transform: translateY(0); }
-.toast.success { background-color: #2c3e50; } /* Dark for contrast on both themes */
+.toast.success { background-color: #2c3e50; }
 .toast.error { background-color: var(--danger-red); }
 
 /* ==========================================================================
    9. RESPONSIVE DESIGN
    ========================================================================== */
 @media (max-width: 1200px) {
-    #app-sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100%;
-        transform: translateX(-100%);
-        z-index: 1001;
-        transition: transform 0.3s var(--ease-out-cubic);
-    }
-    #app-sidebar.mobile-visible {
-        transform: translateX(0);
-    }
-    #app-sidebar.collapsed {
-        width: var(--sidebar-width-expanded); /* No collapsed state on mobile */
-    }
-    #main-workspace {
-        margin-left: 0;
-    }
-    #mobile-menu-btn {
-        display: block;
-    }
-    .nav-welcome-text {
-        display: none;
-    }
+    #app-sidebar { position: fixed; left: 0; top: 0; height: 100%; transform: translateX(-100%); z-index: 1001; transition: transform 0.3s var(--ease-out-cubic); }
+    #app-sidebar.mobile-visible { transform: translateX(0); }
+    #app-sidebar.collapsed { width: var(--sidebar-width-expanded); }
+    #main-workspace { margin-left: 0; }
+    #mobile-menu-btn { display: flex; align-items: center; justify-content: center; }
+    .nav-welcome-text { display: none; }
 }
 
 @media (max-width: 992px) {
-    .dashboard-layout {
-        flex-direction: column;
-    }
-    #filter-panel {
-        width: 100%;
-        position: static;
-        max-height: 0;
-        padding: 0 15px;
-        overflow: hidden;
-        border: none;
-        transition: max-height 0.3s var(--ease-out-cubic), padding 0.3s;
-    }
-    #filter-panel:not(.collapsed) {
-        max-height: 500px;
-        padding: 15px;
-        border: 1px solid var(--border-primary);
-        margin-bottom: 20px;
-    }
-    .settings-layout, .detail-workspace {
-        flex-direction: column;
-    }
-    .settings-sidebar, .detail-nav-pane {
-        width: 100%;
-        flex-direction: row;
-        overflow-x: auto;
-    }
-    .table-container thead {
-        display: none; /* Hide table head on mobile */
-    }
-    .table-container tr {
-        display: block;
-        border: 1px solid var(--border-primary);
-        border-radius: 8px;
-        margin-bottom: 15px;
-        padding: 10px;
-    }
-    .table-container td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 5px;
-        border: none;
-        white-space: normal;
-    }
-    .table-container td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        color: var(--text-secondary);
-        margin-right: 10px;
-    }
-    .expand-col, .actions-col {
-        width: 100%;
-    }
+    .dashboard-layout { flex-direction: column; }
+    #filter-panel { width: 100%; position: static; max-height: 0; padding: 0 15px; overflow: hidden; border: none; transition: max-height 0.3s var(--ease-out-cubic), padding 0.3s; }
+    #filter-panel:not(.collapsed) { max-height: 500px; padding: 15px; border: 1px solid var(--border-primary); margin-bottom: 20px; }
+    .settings-layout, .detail-workspace { flex-direction: column; }
+    .settings-sidebar, .detail-nav-pane { width: 100%; flex-direction: row; overflow-x: auto; border-bottom: 1px solid var(--border-primary); margin-bottom: 20px; }
+    .settings-link, .in-page-link { border-bottom: 3px solid transparent; border-radius: 0; }
+    .settings-link.active, .in-page-link.active { border-bottom-color: var(--primary-blue); background-color: transparent; }
+
+    /* FIX: Responsive Table Transformation */
+    .table-container thead { display: none; }
+    .table-container tr { display: block; border: 1px solid var(--border-primary); border-radius: 8px; margin-bottom: 15px; padding: 10px; }
+    .table-container .secondary-data-row { display: none !important; } /* Hide expand row on mobile */
+    .table-container td { display: flex; justify-content: space-between; align-items: center; padding: 8px 5px; border: none; white-space: normal; text-align: right; }
+    .table-container td:before { content: attr(data-label); font-weight: 600; color: var(--text-secondary); margin-right: 10px; text-align: left; }
+    .table-container td.expand-col { display: none; } /* Hide expand icon */
+    .table-container td.actions-col { justify-content: flex-end; }
+    .primary-cell-content { display: flex; flex-direction: column; align-items: flex-end; }
+    .primary-cell-content strong { font-size: 1.1rem; }
 }
 
 @media (max-width: 768px) {
-    #page-content-container {
-        padding: 15px;
-    }
-    #global-header {
-        padding: 0 15px;
-    }
-    .page-title {
-        font-size: 1.5rem;
-    }
-    .toolbar-actions {
-        /* Allow actions to wrap on small screens */
-        flex-wrap: wrap;
-        justify-content: flex-end;
-    }
+    #page-content-container { padding: 15px; }
+    #global-header { padding: 0 15px; }
+    .page-title { font-size: 1.5rem; }
+    .toolbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+    .profile-component { flex-direction: column; align-items: center; }
 }
