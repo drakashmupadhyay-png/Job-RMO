@@ -44,6 +44,41 @@ export function toggleSidebar(isCollapsed) {
     SELECTORS.appSidebar.classList.toggle('collapsed', isCollapsed);
 }
 
+// --- In ui.js, ADD this new function ---
+
+/**
+ * Toggles the visibility of the sidebar on mobile devices.
+ * Creates and manages a background overlay.
+ * @param {boolean} shouldOpen - Force the sidebar to open or close.
+ */
+export function toggleMobileSidebar(shouldOpen) {
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar) return;
+
+    // Create overlay element if it doesn't exist
+    let overlay = document.getElementById('mobile-sidebar-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'mobile-sidebar-overlay';
+        // Add listener to close the sidebar when overlay is clicked
+        overlay.addEventListener('click', () => toggleMobileSidebar(false));
+        document.getElementById('main-app-view').appendChild(overlay);
+    }
+
+    const isVisible = sidebar.classList.contains('mobile-visible');
+
+    // Determine whether to open or close
+    const open = shouldOpen === undefined ? !isVisible : shouldOpen;
+
+    if (open) {
+        sidebar.classList.add('mobile-visible');
+        overlay.classList.add('visible');
+    } else {
+        sidebar.classList.remove('mobile-visible');
+        overlay.classList.remove('visible');
+    }
+}
+
 export function setActivePage(pageId) {
     SELECTORS.pageContainer.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
     const activePage = document.getElementById(pageId);
