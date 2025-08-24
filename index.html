@@ -72,27 +72,36 @@
                 </div>
             </header>
 
+            <!-- Find and replace this whole section -->
             <section id="dashboard-metrics" class="dashboard-metrics">
-                <div class="metric-card">
+                <div class="metric-item">
                     <i class="fa-solid fa-briefcase"></i>
-                    <div class="metric-value" id="metric-active">0</div>
-                    <div class="metric-label">Active</div>
+                    <div class="metric-text">
+                        <span class="metric-value" id="metric-active">0</span>
+                        <span class="metric-label">Active</span>
+                    </div>
                 </div>
-                <div class="metric-card">
+                <div class="metric-item">
                     <i class="fa-solid fa-circle-xmark"></i>
-                    <div class="metric-value" id="metric-closed">0</div>
-                    <div class="metric-label">Closed</div>
+                    <div class="metric-text">
+                        <span class="metric-value" id="metric-closed">0</span>
+                        <span class="metric-label">Closed</span>
+                    </div>
                 </div>
-                <div class="metric-card">
-                    <i class="fa-solid fa-bell"></i>
-                    <div class="metric-value" id="metric-closing-soon">0</div>
-                    <div class="metric-label">Closing Soon</div>
-                </div>
-                <div class="metric-card">
-                    <i class="fa-solid fa-phone-volume"></i>
-                    <div class="metric-value" id="metric-follow-ups">0</div>
-                    <div class="metric-label">Follow-up Soon</div>
-                </div>
+    <div class="metric-item">
+        <i class="fa-solid fa-bell"></i>
+        <div class="metric-text">
+            <span class="metric-value" id="metric-closing-soon">0</span>
+            <span class="metric-label">Closing Soon</span>
+        </div>
+    </div>
+    <div class="metric-item">
+        <i class="fa-solid fa-phone-volume"></i>
+        <div class="metric-text">
+            <span class="metric-value" id="metric-follow-ups">0</span>
+            <span class="metric-label">Follow-up</span>
+        </div>
+    </div>
             </section>
 
             <section class="dashboard-controls">
