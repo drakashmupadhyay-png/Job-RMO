@@ -1,9 +1,9 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.0 - Blueprint Realized)
+// RMO Job-Flow - main.js (v2.2 - Final Blueprint Polish)
 // Description: The central "brain" of the application. Manages state,
-// orchestrates modules (API, UI), and handles all business logic and event listeners.
+// orchestrates modules, and handles all business logic and event listeners.
 // ---
 
 import { auth } from './firebase-config.js';
@@ -33,28 +33,31 @@ let appState = {
     }
 };
 let realtimeListeners = [];
-let currentPageCleanup = () => {}; // Holds the cleanup function for the current page's listeners
+let currentPageCleanup = () => {};
+let clockInterval = null;
 
 // --- PRIMARY ENTRY/EXIT POINTS (Called by auth.js) ---
 
 export function initializeMainApp(user) {
     currentUser = user;
     console.log("Initializing main application for user:", user.uid);
+    ui.renderFooter(); // Render the footer with the clock
+    clockInterval = setInterval(() => ui.updateClock(userProfileData.preferences?.timezone), 1000);
     setupRealtimeListeners(user.uid);
-    attachGlobalEventListeners(); // Attach listeners that are always active
+    attachGlobalEventListeners();
     navigateTo(window.location.hash || '#dashboard');
 }
 
 export function cleanupMainApp() {
     console.log("Cleaning up main application.");
+    if(clockInterval) clearInterval(clockInterval);
     realtimeListeners.forEach(unsubscribe => unsubscribe());
     realtimeListeners = [];
     if (typeof currentPageCleanup === 'function') {
-        currentPageCleanup(); // Clean up listeners for the last active page
+        currentPageCleanup();
     }
     currentUser = null;
     userProfileData = {};
-    // Reset state to default
     appState = {
         jobs: [], experiences: [], documents: [],
         ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null },
@@ -78,38 +81,24 @@ function setupRealtimeListeners(userId) {
 
     const jobsUnsubscribe = api.setupRealtimeListener(`users/${userId}/jobs`, (docs) => {
         appState.jobs = docs.map(job => ({...job, closingDate: job.closingDate?.toDate(), followUpDate: job.followUpDate?.toDate(), interviewDate: job.interviewDate?.toDate()}));
+        checkReminders();
         if (appState.ui.currentPage === 'dashboard') {
             ui.renderDashboard(appState.jobs, appState.filters.dashboard);
         }
     }, { orderBy: ["createdAt", "desc"] });
-
-    const experiencesUnsubscribe = api.setupRealtimeListener(`users/${userId}/experiences`, (docs) => {
-        appState.experiences = docs;
-        if (appState.ui.currentPage === 'experienceBook') {
-            ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
-        }
-    });
-
-    const documentsUnsubscribe = api.setupRealtimeListener(`users/${userId}/documents`, (docs) => {
-        appState.documents = docs.map(doc => ({...doc, uploadedAt: doc.uploadedAt?.toDate() }));
-        if (appState.ui.currentPage === 'documents') {
-            ui.renderDocumentsPage(appState.documents);
-        }
-    });
     
-    realtimeListeners.push(userUnsubscribe, jobsUnsubscribe, experiencesUnsubscribe, documentsUnsubscribe);
+    // Add other listeners when ready
+    realtimeListeners.push(userUnsubscribe, jobsUnsubscribe);
 }
 
 // --- NAVIGATION ---
 
 function navigateTo(hash) {
     if (typeof currentPageCleanup === 'function') {
-        currentPageCleanup(); // Clean up old listeners before navigating
+        currentPageCleanup();
     }
-
     const pageId = hash.substring(1).split('/')[0] || 'dashboard';
     appState.ui.currentPage = pageId;
-    
     ui.setActivePage(pageId);
     ui.updateFAB(pageId);
 
@@ -117,14 +106,6 @@ function navigateTo(hash) {
         case 'dashboard':
             ui.renderDashboard(appState.jobs, appState.filters.dashboard);
             currentPageCleanup = setupDashboardListeners();
-            break;
-        case 'experienceBook':
-            ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
-            currentPageCleanup = setupExperienceBookListeners();
-            break;
-        case 'documents':
-            ui.renderDocumentsPage(appState.documents);
-            currentPageCleanup = setupDocumentsListeners();
             break;
         case 'settings':
             ui.renderSettingsPage(userProfileData);
@@ -137,6 +118,14 @@ function navigateTo(hash) {
             ui.renderApplicationDetailPage(jobData);
             currentPageCleanup = setupApplicationDetailListeners();
             break;
+        case 'experienceBook':
+            ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
+            currentPageCleanup = () => {};
+            break;
+        case 'documents':
+            ui.renderDocumentsPage(appState.documents);
+            currentPageCleanup = () => {};
+            break;
         default:
             window.location.hash = '#dashboard';
             break;
@@ -147,6 +136,7 @@ function navigateTo(hash) {
 
 function attachGlobalEventListeners() {
     window.addEventListener('hashchange', () => navigateTo(window.location.hash));
+    window.addEventListener('click', handleGlobalClick); // For closing dropdowns
     document.getElementById('app-sidebar').addEventListener('click', handleSidebarClicks);
     document.getElementById('global-header').addEventListener('click', handleHeaderClicks);
     document.getElementById('fab').addEventListener('click', handleFabClick);
@@ -183,17 +173,18 @@ function setupApplicationDetailListeners() {
     };
 }
 
-function setupExperienceBookListeners() { /* Placeholder for future implementation */ return () => {}; }
-function setupDocumentsListeners() { /* Placeholder for future implementation */ return () => {}; }
+// --- EVENT HANDLERS ---
 
-
-// --- DELEGATED & GLOBAL EVENT HANDLERS ---
+function handleGlobalClick(e) {
+    // Close user dropdown if click is outside of it
+    if (!e.target.closest('#nav-user-menu')) {
+        ui.closeUserDropdown();
+    }
+}
 
 function handleSidebarClicks(e) {
     const link = e.target.closest('.nav-link');
-    if (link) {
-        window.location.hash = link.getAttribute('href');
-    }
+    if (link) window.location.hash = link.getAttribute('href');
     if(e.target.closest('.sidebar-header')) {
         appState.ui.isSidebarCollapsed = !appState.ui.isSidebarCollapsed;
         ui.toggleSidebar(appState.ui.isSidebarCollapsed);
@@ -201,62 +192,38 @@ function handleSidebarClicks(e) {
 }
 
 function handleHeaderClicks(e) {
-    if (e.target.closest('#mobile-menu-btn')) {
-        ui.toggleMobileSidebar(true); // Explicitly tell the UI to open the sidebar
-    }
-    if (e.target.closest('#logout-btn')) {
-        signOut(auth);
-    }
-    if (e.target.closest('#nav-user-menu')) {
-        ui.toggleUserDropdown();
-    }
+    if (e.target.closest('#logout-btn')) signOut(auth);
+    if (e.target.closest('#nav-user-menu')) ui.toggleUserDropdown();
+    if (e.target.closest('#mobile-menu-btn')) ui.toggleMobileSidebar(true);
 }
 
 function handleFabClick() {
     switch (appState.ui.currentPage) {
-        case 'dashboard':
-            window.location.hash = '#applicationDetail/new';
-            break;
-        case 'experienceBook':
-            // ui.openExperienceInspector();
-            break;
-        case 'documents':
-            const docInput = document.getElementById('master-doc-file-input');
-            docInput.onchange = handleMasterDocumentUpload;
-            docInput.click();
-            break;
+        case 'dashboard': window.location.hash = '#applicationDetail/new'; break;
+        // Other FAB actions
     }
 }
-
-
-// --- PAGE-SPECIFIC EVENT HANDLERS ---
 
 function handleDashboardClicks(e) {
     if (e.target.closest('#toggle-filters-btn')) {
         appState.ui.isFilterPanelOpen = !appState.ui.isFilterPanelOpen;
         ui.toggleFilterPanel(appState.ui.isFilterPanelOpen);
     }
-    if (e.target.closest('#close-filter-panel-btn')) {
+    if (e.target.closest('#close-filter-panel-btn') || e.target.closest('#clear-filters-btn')) {
+        if (e.target.closest('#clear-filters-btn')) {
+            appState.filters.dashboard = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' };
+            ui.resetDashboardFilters();
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+        }
         appState.ui.isFilterPanelOpen = false;
         ui.toggleFilterPanel(false);
     }
-    if (e.target.closest('#clear-filters-btn')) {
-        appState.filters.dashboard = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' };
-        ui.resetDashboardFilters();
-        ui.renderDashboard(appState.jobs, appState.filters.dashboard);
-    }
-
     const row = e.target.closest('.interactive-row');
     if (row) {
         const jobId = row.dataset.jobId;
         const job = appState.jobs.find(j => j.id === jobId);
-        if (e.target.closest('.expand-icon')) {
-            ui.toggleRowExpansion(row, job);
-        } else if (e.target.closest('.actions-menu-btn')) {
-            // Future: ui.showActionsMenu(target, job);
-        } else {
-            window.location.hash = `#applicationDetail/${jobId}`;
-        }
+        if (e.target.closest('.expand-icon')) ui.toggleRowExpansion(row, job);
+        else window.location.hash = `#applicationDetail/${jobId}`;
     }
 }
 
@@ -266,14 +233,11 @@ function handleSettingsClicks(e) {
         e.preventDefault();
         ui.setActiveSettingsSection(settingsLink.getAttribute('href').substring(1));
     }
-    
     const themeButton = e.target.closest('.segment-btn');
     if (themeButton) {
         const theme = themeButton.dataset.theme;
-        ui.applyTheme(theme);
         api.updateUserDocument(currentUser.uid, { 'preferences.theme': theme });
     }
-
     if(e.target.closest('#save-profile-btn')) handleSaveProfile();
     if(e.target.closest('#update-password-btn')) handleUpdatePassword();
     if(e.target.closest('#interactive-avatar')) document.getElementById('profile-image-upload').click();
@@ -284,7 +248,6 @@ function handleApplicationDetailClicks(e) {
     if(e.target.closest('#delete-app-btn')) handleDeleteApplication();
     if(e.target.closest('#duplicate-app-btn')) handleDuplicateApplication();
 }
-
 
 // --- ACTION LOGIC ---
 
@@ -330,21 +293,6 @@ async function handleProfileImageUpload(e) {
     } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
 }
 
-async function handleMasterDocumentUpload(e) {
-    const files = e.target.files;
-    if (!files.length) return;
-    ui.showToast(`Uploading ${files.length} document(s)...`);
-    try {
-        for (const file of files) {
-            const path = `users/${currentUser.uid}/documents/${Date.now()}_${file.name}`;
-            const downloadURL = await api.uploadFile(path, file);
-            const docData = { name: file.name, url: downloadURL, path, size: file.size, type: file.type, uploadedAt: new Date() };
-            await api.addDocument(`users/${currentUser.uid}/documents`, docData);
-        }
-        ui.showToast("Upload complete!", "success");
-    } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
-}
-
 async function handleSaveApplication() {
     const formData = ui.getApplicationFormData();
     if (!formData.jobTitle) { ui.showToast("Job Title is required.", "error"); return; }
@@ -382,11 +330,26 @@ function handleDuplicateApplication() {
     const originalJob = appState.jobs.find(j => j.id === idToDup);
     if (originalJob) {
         const newJobData = { ...originalJob };
-        delete newJobData.id; // Ensure it's treated as a new document
+        delete newJobData.id;
         newJobData.jobTitle = `${originalJob.jobTitle} (Copy)`;
-        newJobData.status = 'Identified'; // Reset status
-        appState.ui.activeJobId = 'new'; // Set mode to new
-        ui.renderApplicationDetailPage(newJobData); // Re-render the page with copied data
+        newJobData.status = 'Identified';
+        ui.renderApplicationDetailPage(newJobData);
         ui.showToast("Application duplicated. Editing the new copy.");
     }
+}
+
+function checkReminders() {
+    const now = new Date();
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const activeJobs = appState.jobs.filter(job => !['Closed', 'Offer Declined', 'Unsuccessful'].includes(job.status));
+    
+    const urgentJobs = activeJobs.filter(job => {
+        const isClosingToday = job.closingDate && job.closingDate <= endOfToday;
+        const isFollowUpDue = job.followUpDate && !job.followUpComplete && job.followUpDate <= endOfToday;
+        return isClosingToday || isFollowUpDue;
+    });
+
+    ui.updateNotificationBadge(urgentJobs.length);
 }
