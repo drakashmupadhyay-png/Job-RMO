@@ -1,18 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RMO Job-Flow</title>
+    <!-- Stylesheets -->
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- FullCalendar -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/index.global.min.js'></script>
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/main.min.css' rel='stylesheet' />
 </head>
 <body>
 
+    <!-- ======================================================================= -->
+    <!-- AUTHENTICATION VIEW (For logged-out users) -->
+    <!-- ======================================================================= -->
     <div id="auth-view">
         <div class="login-container">
+            <!-- Login Form -->
             <form id="login-form" class="auth-form">
                 <div class="login-header">
                     <div class="login-icon-wrapper"><i class="fa-solid fa-briefcase-medical"></i></div>
@@ -22,10 +28,11 @@
                 <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" required></div>
                 <div class="form-group"><label for="login-pass">Password</label><input type="password" id="login-pass" required></div>
                 <button type="submit" class="primary-action-btn" style="width: 100%;">Login</button>
-                <p id="login-error" class="hidden" style="color: var(--danger-red); margin-top: 15px;">Invalid credentials.</p>
+                <p id="login-error" class="hidden status-message error">Invalid credentials.</p>
                 <p class="auth-switch-text">Don't have an account? <a href="#" id="show-signup-link">Sign Up</a></p>
             </form>
 
+            <!-- Signup Form -->
             <form id="signup-form" class="auth-form hidden">
                 <div class="login-header">
                     <div class="login-icon-wrapper"><i class="fa-solid fa-user-plus"></i></div>
@@ -37,393 +44,292 @@
                 <div class="form-group"><label for="signup-pass">Set Password</label><input type="password" id="signup-pass" required></div>
                 <div class="form-group"><label for="signup-cpass">Confirm Password</label><input type="password" id="signup-cpass" required></div>
                 <button type="submit" class="primary-action-btn" style="width: 100%;">Sign Up</button>
-                <p id="signup-error" class="hidden" style="color: var(--danger-red); margin-top: 15px;">Could not create account.</p>
+                <p id="signup-error" class="hidden status-message error">Could not create account.</p>
                 <p class="auth-switch-text">Already have an account? <a href="#" id="show-login-link">Log In</a></p>
             </form>
         </div>
     </div>
 
+    <!-- ======================================================================= -->
+    <!-- MAIN APPLICATION VIEW (The entire app for logged-in users) -->
+    <!-- ======================================================================= -->
     <div id="main-app-view" class="hidden">
-        <nav class="main-nav">
-            <div class="nav-logo"><i class="fa-solid fa-briefcase-medical"></i><h1>RMO Job-Flow</h1></div>
-            <div class="nav-links">
-                <a href="#dashboard" class="nav-link active"><i class="fa-solid fa-table-columns"></i> <span>Dashboard</span></a>
-                <a href="#experienceBook" class="nav-link"><i class="fa-solid fa-book-bookmark"></i> <span>Experience Book</span></a>
-                <a href="#documents" class="nav-link"><i class="fa-solid fa-folder-open"></i> <span>My Documents</span></a>
-            </div>
-            <div class="nav-user">
-                <span class="nav-welcome-text">Welcome, <span id="nav-user-name">User</span></span>
-                <div class="nav-user-menu" id="nav-user-menu">
-                    <img id="nav-user-img" src="placeholder.jpg" alt="User" class="nav-user-avatar">
-                    <div class="dropdown-menu hidden" id="user-dropdown">
-                        <a href="#settings" class="dropdown-item nav-link-item"><i class="fa-solid fa-gear"></i> Settings</a>
-                        <a href="#" class="dropdown-item" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-                    </div>
-                </div>
-            </div>
-        </nav>
 
-        <!-- DASHBOARD PAGE -->
-        <main id="dashboard" class="page-content">
-            <header class="dashboard-header">
-                <div class="dashboard-title"><h2>Application Dashboard</h2><p>Your master overview of all job applications.</p></div>
-                <div class="header-actions">
-                    <button id="add-new-application-btn" class="primary-action-btn"><i class="fa-solid fa-plus"></i> Add Application</button>
+        <!-- 1. GLOBAL APP SIDEBAR -->
+        <aside id="app-sidebar">
+            <div class="sidebar-header">
+                <div class="nav-logo"><i class="fa-solid fa-briefcase-medical"></i><h1>RMO Job-Flow</h1></div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-link active" title="Dashboard"><i class="fa-solid fa-table-columns"></i><span>Dashboard</span></a>
+                <a href="#experienceBook" class="nav-link" title="Experience Book"><i class="fa-solid fa-book-bookmark"></i><span>Experience Book</span></a>
+                <a href="#documents" class="nav-link" title="My Documents"><i class="fa-solid fa-folder-open"></i><span>My Documents</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="#settings" class="nav-link" title="Settings"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
+                <button id="sidebar-toggle-btn" title="Toggle Sidebar"><i class="fa-solid fa-chevron-left"></i></button>
+            </div>
+        </aside>
+
+        <!-- 2. MAIN WORKSPACE -->
+        <div id="main-workspace">
+            
+            <header id="global-header">
+                <button id="mobile-menu-btn" aria-label="Open Menu"><i class="fa-solid fa-bars"></i></button>
+                <div class="header-user-area">
+                    <button id="smart-reminders-btn" class="icon-btn" title="Urgent Reminders"><i class="fa-solid fa-bell"></i><span id="reminders-badge" class="badge hidden">0</span></button>
+                    <div class="nav-user">
+                        <span class="nav-welcome-text">Welcome, <span id="nav-user-name">User</span></span>
+                        <div class="nav-user-menu" id="nav-user-menu">
+                            <img id="nav-user-img" src="placeholder.jpg" alt="User Avatar" class="nav-user-avatar">
+                            <div class="dropdown-menu hidden" id="user-dropdown">
+                                <a href="#settings" class="dropdown-item nav-link-item"><i class="fa-solid fa-gear"></i> Settings</a>
+                                <a href="#" class="dropdown-item" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
-            <!-- Find and replace this whole section -->
-            <section id="dashboard-metrics" class="dashboard-metrics">
-                <div class="metric-item">
-                    <i class="fa-solid fa-briefcase"></i>
-                    <div class="metric-text">
-                        <span class="metric-value" id="metric-active">0</span>
-                        <span class="metric-label">Active</span>
+            <div id="page-content-container">
+
+                <!-- DASHBOARD PAGE -->
+                <main id="dashboard" class="page-content">
+                    <div class="dashboard-layout">
+                        <aside id="filter-panel" class="inspector-panel collapsed">
+                           <div class="inspector-header">
+                               <h3><i class="fa-solid fa-filter"></i> Refine List</h3>
+                               <button id="close-filter-panel-btn" class="icon-btn" aria-label="Close Filters">×</button>
+                           </div>
+                           <div class="inspector-content">
+                               <div class="filter-group">
+                                   <label for="search-bar">Search</label>
+                                   <input type="search" id="search-bar" placeholder="Search all fields...">
+                               </div>
+                               <div class="filter-group"><label for="state-filter">State</label><select id="state-filter"></select></div>
+                               <div class="filter-group"><label for="type-filter">Type</label><select id="type-filter"></select></div>
+                               <div class="filter-group"><label for="status-filter">Status</label><select id="status-filter"></select></div>
+                               <div class="filter-group"><label for="sort-by-filter">Sort by</label><select id="sort-by-filter"></select></div>
+                               <button id="clear-filters-btn" class="secondary-btn" style="width: 100%;">Clear Filters</button>
+                           </div>
+                        </aside>
+                        <div id="dashboard-main-content">
+                            <div class="toolbar">
+                                <h2 class="page-title">Dashboard</h2>
+                                <div class="toolbar-actions">
+                                    <button id="toggle-filters-btn" class="secondary-btn"><i class="fa-solid fa-filter"></i> Filters <span id="filter-count-badge" class="badge hidden">0</span></button>
+                                    <button id="select-jobs-btn" class="secondary-btn"><i class="fa-solid fa-check-square"></i> Select</button>
+                                    <div class="view-switcher">
+                                        <button id="table-view-btn" class="view-btn active" title="Table View"><i class="fa-solid fa-table-list"></i></button>
+                                        <button id="calendar-view-btn" class="view-btn" title="Calendar View"><i class="fa-solid fa-calendar-days"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="table-view-container" class="view-container">
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th class="select-col hidden"><input type="checkbox" id="select-all-checkbox" title="Select All Visible"></th>
+                                                <th class="expand-col" aria-label="Expand Row"></th>
+                                                <th>Job (Title & Hospital)</th>
+                                                <th>Status</th>
+                                                <th>Closing Date</th>
+                                                <th>Follow-Up</th>
+                                                <th class="actions-col" aria-label="Actions"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="jobs-table-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                             <div id="card-view-container" class="view-container"></div>
+                            <div id="calendar-view-container" class="view-container hidden"><div id="calendar"></div></div>
+                        </div>
                     </div>
-                </div>
-                <div class="metric-item">
-                    <i class="fa-solid fa-circle-xmark"></i>
-                    <div class="metric-text">
-                        <span class="metric-value" id="metric-closed">0</span>
-                        <span class="metric-label">Closed</span>
+                </main>
+
+                <!-- EXPERIENCE BOOK PAGE -->
+                <main id="experienceBook" class="page-content hidden">
+                    <div class="experience-book-layout">
+                        <aside id="experience-sidebar">
+                            <div class="sidebar-block">
+                                <h3>Categories</h3>
+                                <ul id="experience-categories-list" class="category-list"></ul>
+                            </div>
+                        </aside>
+                        <div class="experience-main-content">
+                            <div class="toolbar">
+                                <h2 class="page-title">Experience Book</h2>
+                                <input type="search" id="experience-search-bar" placeholder="Search experiences...">
+                            </div>
+                            <div id="experience-tag-filters" class="tag-filter-bar"></div>
+                            <div id="experience-cards-container" class="experience-cards-container"></div>
+                        </div>
+                        <aside id="experience-inspector" class="inspector-panel collapsed">
+                            <div class="inspector-header">
+                                <h3>Experience Details</h3>
+                                <button id="close-experience-inspector-btn" class="icon-btn" aria-label="Close">×</button>
+                            </div>
+                            <div class="inspector-content">
+                                <div class="form-group"><label for="exp-title">Title (Question)</label><input type="text" id="exp-title"></div>
+                                <div class="form-group"><label for="exp-paragraph">Response (Answer)</label><textarea id="exp-paragraph" rows="10"></textarea></div>
+                                <div class="form-group"><label for="exp-tags">Tags (comma-separated)</label><input type="text" id="exp-tags"></div>
+                                <div class="form-group">
+                                    <h4>Linked Applications</h4>
+                                    <ul id="exp-linked-apps-list" class="linked-items-list"></ul>
+                                </div>
+                            </div>
+                            <div class="inspector-footer">
+                                <button id="delete-exp-btn" class="danger-btn">Delete</button>
+                                <button id="save-exp-btn" class="primary-action-btn">Save</button>
+                            </div>
+                        </aside>
                     </div>
-                </div>
-    <div class="metric-item">
-        <i class="fa-solid fa-bell"></i>
-        <div class="metric-text">
-            <span class="metric-value" id="metric-closing-soon">0</span>
-            <span class="metric-label">Closing Soon</span>
-        </div>
-    </div>
-    <div class="metric-item">
-        <i class="fa-solid fa-phone-volume"></i>
-        <div class="metric-text">
-            <span class="metric-value" id="metric-follow-ups">0</span>
-            <span class="metric-label">Follow-up</span>
-        </div>
-    </div>
-            </section>
+                </main>
 
-            <section class="dashboard-controls">
-                <button id="select-jobs-btn" class="secondary-btn"><i class="fa-solid fa-check-square"></i> Select</button>
-                <button id="toggle-filters-btn" class="secondary-btn toggle-filters-btn"><i class="fa-solid fa-filter"></i> Filters <i class="fa-solid fa-chevron-down"></i></button>
-                <div class="view-switcher">
-                    <button id="table-view-btn" class="view-btn active"><i class="fa-solid fa-table-list"></i> Table</button>
-                    <button id="calendar-view-btn" class="view-btn"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
-                </div>
-            </section>
-            
-            <section id="filter-controls" class="filter-controls collapsed">
-                <div class="filter-group"><label for="state-filter">State:</label><select id="state-filter"><option value="all">All States</option><option value="NSW">NSW</option><option value="VIC">VIC</option><option value="QLD">QLD</option><option value="WA">WA</option><option value="SA">SA</option><option value="TAS">TAS</option><option value="NT">NT</option><option value="ACT">ACT</option></select></div>
-                <div class="filter-group"><label for="type-filter">Type:</label><select id="type-filter"><option value="all">All Types</option><option value="Statewide Campaign">Statewide Campaign</option><option value="Direct Hospital">Direct Hospital</option><option value="Proactive EOI">Proactive EOI</option></select></div>
-                <div class="filter-group"><label for="status-filter">Status:</label><select id="status-filter"><option value="all">All Statuses</option><option value="Identified">Identified</option><option value="Preparing Application">Preparing</option><option value="Applied">Applied</option><option value="Interview Offered">Interview</option><option value="Offer Received">Offer</option></select></div>
-                <div class="filter-group"><label for="role-level-filter">Role Level:</label><select id="role-level-filter"><option value="all">All Roles</option><option value="Intern">Intern</option><option value="RMO">RMO</option><option value="SRMO">SRMO</option><option value="Registrar">Registrar</option><option value="Trainee">Trainee</option></select></div>
-                <div class="filter-group">
-                    <label for="sort-by-filter">Sort by:</label>
-                    <select id="sort-by-filter">
-                        <option value="default">Recently Added</option>
-                        <option value="closed-desc">Closed</option>
-                        <option value="closing-asc">Closing Soon</option>
-                        <option value="follow-up-asc">Follow-up Soon</option>
-                    </select>
-                </div>
-                <div class="filter-group search-group"><label for="search-bar">Search:</label><input type="search" id="search-bar" placeholder="Search all fields..."></div>
-                <button id="clear-filters-btn" class="secondary-btn">Clear</button>
-            </section>
-            
-            <div id="table-view-container" class="view-container">
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th class="select-col hidden"><input type="checkbox" id="select-all-checkbox" title="Select All Visible"></th>
-                                <th>Job (Title & Hospital)</th>
-                                <th>State</th>
-                                <th>Closing Date</th>
-                                <th>Status</th>
-                                <th>Follow-Up</th>
-                                <th>Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody id="jobs-table-body"></tbody>
-                    </table>
-                </div>
-            </div>
+                <!-- DOCUMENTS PAGE -->
+                <main id="documents" class="page-content hidden">
+                     <div class="documents-layout">
+                        <aside id="document-sidebar">
+                            <h3>Folders</h3>
+                            <ul id="document-folders-list" class="category-list"></ul>
+                        </aside>
+                        <div class="document-main-content">
+                            <div class="toolbar">
+                                <h2 class="page-title">My Documents</h2>
+                                <div class="view-switcher">
+                                    <button id="doc-list-view-btn" class="view-btn active" title="List View"><i class="fa-solid fa-list"></i></button>
+                                    <button id="doc-grid-view-btn" class="view-btn" title="Grid View"><i class="fa-solid fa-grip"></i></button>
+                                </div>
+                            </div>
+                            <div id="upload-dropzone" class="upload-dropzone">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <p>Drag & drop files here, or click to browse</p>
+                            </div>
+                            <div id="document-list-container"></div>
+                        </div>
+                        <aside id="document-inspector" class="inspector-panel collapsed">
+                             <div class="inspector-header">
+                                <h3>Document Details</h3>
+                                <button id="close-document-inspector-btn" class="icon-btn" aria-label="Close">×</button>
+                            </div>
+                            <div class="inspector-content">
+                                <div id="doc-preview" class="doc-preview"><i class="fa-solid fa-file-alt"></i></div>
+                                <h4 id="doc-inspector-name">File_Name.pdf</h4>
+                                <div id="doc-inspector-details" class="doc-details-grid"></div>
+                                <div class="form-group">
+                                    <h4>Linked Applications</h4>
+                                    <ul id="doc-linked-apps-list" class="linked-items-list"></ul>
+                                </div>
+                                <div class="form-group">
+                                    <h4>Version History</h4>
+                                    <ul id="doc-version-history-list" class="linked-items-list"></ul>
+                                </div>
+                            </div>
+                            <div class="inspector-footer">
+                                <button id="delete-doc-btn" class="danger-btn">Delete</button>
+                                <button id="rename-doc-btn" class="secondary-btn">Rename</button>
+                            </div>
+                        </aside>
+                    </div>
+                </main>
 
-            <div id="card-view-container" class="view-container">
-                <!-- Mobile job cards will be rendered here by JavaScript -->
-            </div>
-
-            <div id="calendar-view-container" class="view-container hidden"><div id="calendar"></div></div>
-            
-            <div id="selection-action-bar" class="selection-action-bar hidden">
-                <div class="selection-info">
-                    <strong><span id="selected-count">0</span></strong> selected
-                </div>
-                <div class="selection-actions">
-                    <button id="delete-selected-btn" class="danger-btn"><i class="fa-solid fa-trash-can"></i> Delete Selected</button>
-                    <button id="cancel-selection-btn" class="secondary-btn">Cancel</button>
-                </div>
-            </div>
-        </main>
-
-        <!-- EXPERIENCE BOOK PAGE -->
-        <main id="experienceBook" class="page-content hidden">
-            <header class="page-header-nav">
-                <h2><i class="fa-solid fa-book-bookmark"></i> Experience Book</h2>
-                <button id="add-new-experience-btn" class="primary-action-btn"><i class="fa-solid fa-plus"></i> Add Experience</button>
-            </header>
-            <section class="experience-filters">
-                <div class="search-container">
-                    <label for="experience-search-bar">Search Experiences</label>
-                    <input type="search" id="experience-search-bar" placeholder="Search by question, answer, or tag...">
-                </div>
-                <div id="experience-tag-filters" class="tag-filter-bar"></div>
-            </section>
-            <div id="experience-cards-container" class="experience-cards-container"></div>
-        </main>
-
-        <!-- EXPERIENCE DETAIL PAGE -->
-        <main id="experienceDetailPage" class="page-content hidden">
-            <header class="page-header-nav">
-                <button id="back-to-exp-book-btn" class="secondary-btn"><i class="fa-solid fa-arrow-left"></i> Back to Experience Book</button>
-            </header>
-            <form id="experience-detail-form">
-                <section class="detail-section">
-                    <h3 id="experience-form-title">New Experience</h3>
-                    <div class="form-grid-1-col">
+                <!-- SETTINGS PAGE -->
+                <main id="settings" class="page-content hidden">
+                    <h2 class="page-title" style="margin-bottom: 20px;">Settings</h2>
+                    <div class="settings-layout">
+                        <nav class="settings-sidebar">
+                            <a href="#profile" class="settings-link active"><i class="fa-solid fa-user-circle"></i> Profile</a>
+                            <a href="#security" class="settings-link"><i class="fa-solid fa-shield-halved"></i> Security</a>
+                            <a href="#dataManagement" class="settings-link"><i class="fa-solid fa-database"></i> Data Management</a>
+                            <a href="#preferences" class="settings-link"><i class="fa-solid fa-sliders"></i> Preferences</a>
+                            <a href="#account" class="settings-link"><i class="fa-solid fa-user-xmark"></i> Account</a>
+                        </nav>
+                        <div class="settings-content">
+                            <section id="profile-section" class="settings-section"></section>
+                            <section id="security-section" class="settings-section hidden"></section>
+                            <section id="dataManagement-section" class="settings-section hidden"></section>
+                            <section id="preferences-section" class="settings-section hidden"></section>
+                            <section id="account-section" class="settings-section hidden"></section>
+                        </div>
+                    </div>
+                </main>
+                
+                <!-- APPLICATION DETAIL PAGE -->
+                <main id="applicationDetailPage" class="page-content hidden">
+                    <header class="detail-summary-header">
                         <div>
-                            <label for="exp-title">Selection Criterion (Question)*</label>
-                            <div id="exp-title" class="editable-div" contenteditable="true" placeholder="e.g., Demonstrated commitment to quality improvement..."></div>
+                            <h2 id="detail-summary-title"></h2>
+                            <p id="detail-summary-hospital"></p>
                         </div>
-                        <div><label for="exp-tags">Tags</label><input type="text" id="exp-tags" placeholder="e.g., NSW, Teamwork, Communication (comma-separated)"></div>
-                        <div><label for="exp-paragraph">Your Response (Answer)*</label><textarea id="exp-paragraph" rows="12" required placeholder="Describe the situation, your task, the action you took, and the result (STAR method)..."></textarea></div>
-                    </div>
-                </section>
-                <footer class="detail-footer">
-                    <div class="footer-actions-left"><button type="button" id="delete-exp-btn" class="danger-btn hidden">Delete</button></div>
-                    <div class="footer-actions-right">
-                        <button type="button" id="copy-exp-btn" class="secondary-btn hidden"><i class="fa-solid fa-clipboard"></i> Copy Text</button>
-                        <button type="submit" id="save-exp-btn" class="primary-action-btn">Save Experience</button>
-                    </div>
-                </footer>
-            </form>
-        </main>
-        
-        <!-- MY DOCUMENTS PAGE -->
-        <main id="documents" class="page-content hidden">
-            <header class="page-header-nav"><h2><i class="fa-solid fa-folder-open"></i> My Documents</h2></header>
-            <section class="detail-section">
-                <div id="upload-dropzone" class="upload-dropzone">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <p>Drag & drop files here, or</p>
-                    <input type="file" id="master-doc-file-input" class="hidden" multiple>
-                    <button type="button" id="master-doc-browse-btn" class="secondary-btn">Browse Files</button>
-                </div>
-            </section>
-            <section class="detail-section">
-                <h3>Document Repository</h3>
-                <div class="table-container">
-                    <table id="documents-table">
-                        <thead>
-                            <tr>
-                                <th>File Name</th>
-                                <th>Date Uploaded</th>
-                                <th>File Size</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="master-docs-tbody">
-                            <!-- Rows will be added by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
-
-        <!-- SETTINGS PAGE -->
-        <main id="settings" class="page-content hidden">
-            <header class="page-header-nav"><h2><i class="fa-solid fa-gear"></i> Settings</h2></header>
-            
-            <section class="detail-section">
-                <h3>Your Profile</h3>
-                <div class="profile-layout">
-                    <div class="profile-image-section">
-                        <img id="profile-image-preview" src="placeholder.jpg" alt="Profile Picture" class="profile-image-preview">
-                        <input type="file" id="profile-image-upload" class="hidden" accept="image/*">
-                        <button type="button" id="profile-image-upload-btn" class="secondary-btn">Upload Image</button>
-                    </div>
-                    <div class="profile-details-section">
-                        <div class="form-group"><label for="profile-name">Full Name</label><input type="text" id="profile-name"></div>
-                        <div class="form-group"><label for="profile-email">Email Address</label><input type="email" id="profile-email" disabled></div>
-                        <button id="save-profile-btn" class="primary-action-btn">Save Name</button>
-                    </div>
-                </div>
-            </section>
-
-            <section class="detail-section">
-                <h3>Security</h3>
-                <div class="form-group">
-                    <label for="profile-new-password">New Password</label>
-                    <input type="password" id="profile-new-password" placeholder="Must be at least 6 characters">
-                </div>
-                <div class="form-group">
-                    <label for="profile-confirm-password">Confirm New Password</label>
-                    <input type="password" id="profile-confirm-password">
-                </div>
-                <button id="update-password-btn" class="primary-action-btn">Update Password</button>
-            </section>
-            
-            <section class="detail-section">
-                <h3>Data Management</h3>
-                <p class="text-light">Export your data regularly as a backup or import data from a previous session.</p>
-                <div class="settings-actions">
-                    <button id="export-data-btn" class="primary-action-btn"><i class="fa-solid fa-file-export"></i> Export All</button>
-                    <button id="import-data-btn" class="secondary-btn"><i class="fa-solid fa-file-import"></i> Import</button>
-                </div>
-                 <hr style="margin: 25px 0;">
-                <p class="text-light">To add multiple jobs at once, upload a JSON file conforming to the data contract.</p>
-                <div class="settings-actions">
-                    <button id="bulk-add-btn" class="primary-action-btn" style="background-color: var(--info-purple);"><i class="fa-solid fa-file-upload"></i> Bulk Add Jobs</button>
-                </div>
-                <div id="bulk-add-summary-section" class="bulk-add-summary hidden">
-                    <p id="bulk-add-summary-text"></p>
-                    <button id="bulk-add-summary-toggle" class="link-button">Show Details</button>
-                    <ul id="bulk-add-skipped-list" class="hidden"></ul>
-                </div>
-            </section>
-
-            <section class="detail-section danger-zone">
-                <h3>Danger Zone</h3>
-                <p class="text-light">This action is permanent and cannot be undone.</p>
-                <button id="delete-account-btn" class="danger-btn">Delete Account</button>
-            </section>
-        </main>
-        
-        <!-- APPLICATION DETAIL PAGE -->
-        <main id="applicationDetailPage" class="page-content hidden">
-            <header class="page-header-nav"><button id="back-to-dashboard-btn" class="secondary-btn"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</button></header>
-            <section id="detail-summary-card" class="detail-summary-card">
-                <div class="summary-main"><h2 id="summary-job-title"></h2><p id="summary-hospital"></p></div>
-                <div class="summary-details">
-                    <div><label>Status</label><span id="summary-status" class="tag"></span></div>
-                    <div><label>Closing Date</label><span id="summary-closing-date"></span></div>
-                </div>
-            </section>
-            <div class="tab-switcher">
-                <button class="tab-btn active" data-target="details-panel">Job Ad Details</button>
-                <button class="tab-btn" data-target="tracker-panel">My Tracker</button>
-            </div>
-            <form id="application-detail-form">
-                <div id="details-panel" class="tab-panel active">
-                    <section class="detail-section">
-                        <h3>Core Job Information & Logistics</h3>
-                        <div class="form-grid-3-col">
-                            <div><label for="detail-job-title">Job Title*</label><div id="detail-job-title" class="editable-field" contenteditable="true"></div></div>
-                            <div><label for="detail-hospital">Health Service/Hospital*</label><div id="detail-hospital" class="editable-field" contenteditable="true"></div></div>
-                            <div><label for="detail-health-network">Health Network / LHD</label><div id="detail-health-network" class="editable-field" contenteditable="true"></div></div>
-                            <div class="full-width input-with-action"><label for="detail-source-url">Application Source URL</label><div id="detail-source-url" class="editable-field" contenteditable="true"></div><a id="view-source-url-link" href="#" target="_blank" class="input-action-btn hidden" title="Open Link in New Tab"><i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>
-                            <div><label for="detail-location">Location (City/Region)</label><div id="detail-location" class="editable-field" contenteditable="true"></div></div>
-                            <div><label for="detail-state">State/Territory*</label><select id="detail-state" required></select></div>
-                            <div><label for="detail-job-id">Job ID / Requisition Code</label><div id="detail-job-id" class="editable-field" contenteditable="true"></div><p id="detail-job-id-error" class="input-error hidden">This Job ID already exists for this Application Type.</p></div>
-                            <div><label for="detail-closing-date">Closing Date & Time</label><input type="datetime-local" id="detail-closing-date"></div>
-                            <div><label for="detail-closing-date-tz">Closing Date Timezone</label><select id="detail-closing-date-tz"><option value="Australia/Sydney">AEST/AEDT (Sydney)</option><option value="Australia/Perth">AWST (Perth)</option><option value="Australia/Adelaide">ACST/ACDT (Adelaide)</option><option value="Australia/Brisbane">AEST (Brisbane)</option><option value="Australia/Darwin">ACST (Darwin)</option><option value="Asia/Kolkata">IST (India)</option></select></div>
-                            <div><label for="detail-application-type">Application Type</label><select id="detail-application-type"></select></div>
-                            <div><label for="detail-portal">Application Portal</label><div id="detail-portal" class="editable-field" contenteditable="true" placeholder="e.g., eRecruit, Workday"></div></div>
+                        <div class="summary-status-container">
+                            <span id="detail-summary-status" class="tag"></span>
                         </div>
-                    </section>
-                    <section class="detail-section">
-                        <h3>Role Details</h3>
-                        <div class="form-grid-3-col">
-                            <div><label for="detail-specialty">Medical Specialty / Department</label><div id="detail-specialty" class="editable-field" contenteditable="true" placeholder="e.g., Emergency Medicine"></div></div>
-                            <div><label for="detail-role-level">Role Level</label><select id="detail-role-level"><option value="">-- Select --</option><option value="Intern">Intern</option><option value="RMO">RMO</option><option value="SRMO">SRMO</option><option value="Registrar">Registrar</option><option value="Trainee">Trainee</option></select></div>
+                    </header>
+                    <div class="detail-workspace">
+                        <aside class="detail-nav-pane">
+                            <nav class="in-page-nav">
+                                <a href="#overview" class="in-page-link active">Overview</a>
+                                <a href="#workbench" class="in-page-link">Workbench</a>
+                                <a href="#app-documents" class="in-page-link">Documents</a>
+                            </nav>
+                            <section id="key-info-section" class="key-info-section">
+                                <h3>Key Information</h3>
+                            </section>
+                        </aside>
+                        <div class="detail-content-pane">
+                            <div id="overview-panel" class="detail-panel">
+                                <!-- Tracker Content: Status, Dates, Notes -->
+                            </div>
+                            <div id="workbench-panel" class="detail-panel hidden">
+                                <div class="toolbar">
+                                    <h3>Selection Criteria Workbench</h3>
+                                    <button id="add-criterion-btn" class="primary-action-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button>
+                                </div>
+                                <div id="selection-criteria-workbench"></div>
+                            </div>
+                            <div id="documents-panel" class="detail-panel hidden">
+                                <h3>Attached Documents</h3>
+                                <div class="documents-container">
+                                    <div class="document-column">
+                                        <h4>Official Documents</h4>
+                                        <ul id="official-docs-list" class="file-list"></ul>
+                                    </div>
+                                    <div class="document-column">
+                                        <h4>My Submitted Documents</h4>
+                                        <ul id="my-docs-list" class="file-list"></ul>
+                                        <button id="attach-from-repo-btn" class="secondary-btn" style="width: 100%; margin-top: 10px;"><i class="fa-solid fa-paperclip"></i> Attach from Repository</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </section>
-                    <section class="detail-section">
-                        <h3>Contact Person</h3>
-                        <div class="form-grid-3-col">
-                            <div><label for="detail-contact-person">Name</label><div id="detail-contact-person" class="editable-field" contenteditable="true"></div></div>
-                            <div><label for="detail-contact-email">Email</label><div id="detail-contact-email" class="editable-field" contenteditable="true"></div></div>
-                            <div><label for="detail-contact-phone">Phone</label><div id="detail-contact-phone" class="editable-field" contenteditable="true"></div></div>
+                    </div>
+                    <footer class="detail-footer">
+                        <button id="delete-app-btn" class="danger-btn">Delete Application</button>
+                        <div>
+                            <button id="duplicate-app-btn" class="secondary-btn">Duplicate</button>
+                            <button id="save-app-btn" class="primary-action-btn">Save Changes</button>
                         </div>
-                    </section>
-                    <section class="detail-section">
-                        <h3>Job Detail Notes</h3>
-                        <textarea id="detail-job-notes" rows="6" placeholder="Log objective details from the job ad, position description, or official communications here..."></textarea>
-                    </section>
-                </div>
-                <div id="tracker-panel" class="tab-panel">
-                    <section class="detail-section"><h3>Your Application Progress</h3><div class="form-grid-3-col"><div><label for="detail-status">Overall Status</label><select id="detail-status"></select></div><div><label for="detail-date-applied">Date Applied / EOI Sent</label><input type="date" id="detail-date-applied"></div><div><label for="detail-follow-up-date">Follow-Up Date</label><input type="date" id="detail-follow-up-date"></div><div class="checkbox-group align-end"><input type="checkbox" id="detail-follow-up-complete"><label for="detail-follow-up-complete">Follow-Up Complete?</label></div></div></section>
-                    <section class="detail-section"><h3>Selection Criteria Workbench</h3><p class="text-light" style="margin-bottom: 20px;">Craft your responses to the specific selection criteria for this job. Link responses from your Experience Book.</p><div id="selection-criteria-workbench" class="workbench-container"></div><div class="workbench-footer"><button type="button" id="add-criterion-btn" class="secondary-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button></div></section>
-                    <section class="detail-section"><h3>Documents & Attachments</h3><p class="text-light">Track the specific files you submitted for this application.</p><div class="documents-container"><div class="document-column"><h4>Official Documents</h4><ul id="official-docs-list" class="file-list"></ul><div class="add-document-form"><input type="file" id="official-doc-file-input" class="hidden"><button type="button" id="upload-official-doc-btn" class="secondary-btn">Upload Document</button></div></div><div class="document-column"><h4>My Submitted Documents</h4><ul id="my-docs-list" class="file-list"></ul><div class="add-document-form"><button type="button" id="attach-from-repo-btn" class="secondary-btn">Attach from Repository</button></div></div></div></section>
-                    <section class="detail-section"><h3>Interview Details</h3><div class="form-grid-3-col"><div><label for="detail-interview-date">Interview Date & Time</label><input type="datetime-local" id="detail-interview-date"></div><div><label for="detail-interview-type">Interview Type</label><input type="text" id="detail-interview-type" placeholder="e.g., Panel, MMI, Virtual"></div><div class="checkbox-group"><input type="checkbox" id="detail-thank-you-sent"><label for="detail-thank-you-sent">Post-Interview Thank You Sent?</label></div></div></section>
-                    <section class="detail-section">
-                        <h3>Job Tracker Notes</h3>
-                        <textarea id="detail-tracker-notes" rows="8" placeholder="Log all personal interactions, prep points, rotation details, or any other important context here..."></textarea>
-                    </section>
-                </div>
-                <footer class="detail-footer">
-                    <div class="footer-actions-left">
-                        <button type="button" id="delete-app-btn" class="danger-btn">Delete Application</button>
-                    </div>
-                    <div class="footer-actions-right">
-                        <button type="button" id="duplicate-app-btn" class="secondary-btn hidden"><i class="fa-solid fa-copy"></i> Duplicate</button>
-                        <button type="submit" id="save-changes-btn" class="primary-action-btn">Save Application Changes</button>
-                    </div>
-                </footer>
-            </form>
-        </main>
-        
-        <footer id="app-footer">
-            <div class="footer-content">
-                <div class="footer-timezone"><label for="timezone-selector">Timezone:</label><select id="timezone-selector"><option value="Asia/Kolkata">IST</option><option value="Australia/Sydney">AEST/AEDT</option><option value="Australia/Perth">AWST</option><option value="UTC">UTC</option></select></div>
-                <div id="current-time-display" class="footer-time"></div>
-            </div>
-        </footer>
-    </div>
-    
-    <!-- MODALS & HIDDEN INPUTS -->
-    <!-- All modals are structurally correct from previous versions -->
+                    </footer>
+                </main>
 
-    <div id="delete-modal-backdrop" class="modal-backdrop hidden">
-        <div id="delete-modal" class="modal">
-            <div class="modal-header"><h3 id="delete-modal-title">Confirm Deletion</h3><button id="delete-modal-close-btn" class="modal-close-btn">×</button></div>
-            <div class="modal-body">
-                <p>Are you sure you want to permanently delete <strong id="delete-count"></strong> selected item(s)?</p>
-                <p class="warning"><strong>This action cannot be undone.</strong></p>
-            </div>
-            <div class="modal-footer">
-                <button id="delete-modal-cancel-btn" class="secondary-btn">Cancel</button>
-                <button id="delete-modal-confirm-btn" class="danger-btn">Yes, Delete Them</button>
             </div>
         </div>
     </div>
-    <div id="link-experience-modal-backdrop" class="modal-backdrop hidden">
-        <div id="link-experience-modal" class="modal">
-             <div class="modal-header"><h3>Link an Experience</h3><button id="link-experience-close-btn" class="modal-close-btn">×</button></div>
-             <div class="modal-body">
-                <input type="search" id="link-experience-search" placeholder="Search your experiences...">
-                <ul id="link-experience-list"></ul>
-             </div>
-        </div>
-    </div>
-    <div id="attach-document-modal-backdrop" class="modal-backdrop hidden">
-        <div id="attach-document-modal" class="modal">
-            <div class="modal-header"><h3>Attach from Repository</h3><button id="attach-document-close-btn" class="modal-close-btn">×</button></div>
-            <div class="modal-body">
-               <p>Select a document to attach to this application.</p>
-               <ul id="attach-document-list"></ul>
-            </div>
-       </div>
-    </div>
 
+    <!-- GLOBAL ELEMENTS (Modals, FAB, etc.) -->
+    <button id="fab" class="fab hidden" aria-label="Add New Item"><i class="fa-solid fa-plus"></i></button>
+    <div id="selection-action-bar" class="selection-action-bar hidden"></div>
+    <div id="delete-modal-backdrop" class="modal-backdrop hidden"></div>
     <input type="file" id="import-file-input" class="hidden" accept=".json">
     <input type="file" id="bulk-add-input" class="hidden" accept=".json">
-    
+    <input type="file" id="profile-image-upload" class="hidden" accept="image/*">
+    <input type="file" id="master-doc-file-input" class="hidden" multiple>
     <div id="toast-container"></div>
     
-    <!-- Main Application Logic -->
+    <!-- JAVASCRIPT LOGIC -->
     <script type="module" src="auth.js"></script>
 
 </body>
-</html>
+</html>```
