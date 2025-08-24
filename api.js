@@ -1,276 +1,231 @@
 "use strict";
 
-// --- 0. IMPORTS ---
-// Import initialized Firebase services from our config file
-import { db, storage } from './firebase-config.js';
-// Import specific functions we need from the Firebase SDK
-import { 
-    updateProfile,
-    updatePassword,
-    deleteUser
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { 
-    doc, 
-    addDoc, 
-    deleteDoc, 
-    updateDoc, 
+// ---
+// RMO Job-Flow - api.js (v2.0 - Blueprint Realized)
+// Description: The dedicated API layer. This is the ONLY module that
+// communicates directly with Firebase services (Firestore, Auth, Storage).
+// ---
+
+// 1. IMPORT FIREBASE SERVICES & SDK FUNCTIONS
+import { db, auth, storage } from './firebase-config.js';
+
+// Firestore Functions
+import {
+    doc,
+    getDoc,
     collection,
-    writeBatch,
-    Timestamp,
-    getDocs
+    getDocs,
+    addDoc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    onSnapshot,
+    query,
+    orderBy as firestoreOrderBy,
+    where as firestoreWhere
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { 
-    ref, 
-    uploadBytesResumable, 
-    getDownloadURL, 
-    deleteObject,
-    listAll
+
+// Storage Functions
+import {
+    ref,
+    uploadBytesResumable,
+    getDownloadURL,
+    deleteObject
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-// --- 1. JOB APPLICATION API ---
+// Auth Functions
+import {
+    updateProfile,
+    updatePassword
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+// ==========================================================================
+// USER MANAGEMENT API
+// ==========================================================================
 
 /**
- * Saves a job application to Firestore. Updates if an ID is provided, otherwise creates a new one.
- * @param {string} userId - The UID of the current user.
- * @param {object} jobData - The job data object to save.
- * @param {string|null} jobId - The ID of the job to update, or null to create.
+ * Creates a user document in Firestore after signup.
+ * @param {string} userId The UID of the new user.
+ * @param {object} userData The user profile data to save.
  * @returns {Promise<void>}
  */
-export async function saveJob(userId, jobData, jobId) {
-    if (jobId) {
-        const jobRef = doc(db, `users/${userId}/jobs`, jobId);
-        await updateDoc(jobRef, jobData);
-    } else {
-        jobData.createdAt = Timestamp.now();
-        const collectionRef = collection(db, `users/${userId}/jobs`);
-        await addDoc(collectionRef, jobData);
+export async function createUserDocument(userId, userData) {
+    const userDocRef = doc(db, 'users', userId);
+    await setDoc(userDocRef, userData);
+}
+
+/**
+ * Updates a user document in the 'users' collection in Firestore.
+ * @param {string} userId The UID of the user to update.
+ * @param {object} data The data to update.
+ * @returns {Promise<void>}
+ */
+export async function updateUserDocument(userId, data) {
+    const userDocRef = doc(db, 'users', userId);
+    await updateDoc(userDocRef, data);
+}
+
+// ==========================================================================
+// GENERIC FIRESTORE CRUD API
+// ==========================================================================
+
+/**
+ * Sets up a realtime listener for a Firestore document or collection.
+ * @param {string} path The path to the document or collection.
+ * @param {function} callback The function to call with the data snapshot.
+ * @param {object} [options] Optional query constraints (e.g., orderBy).
+ * @returns {import("firebase/firestore").Unsubscribe} The unsubscribe function.
+ */
+export function setupRealtimeListener(path, callback, options = {}) {
+    let q;
+    // Check if the path points to a collection or a document
+    if (path.split('/').length % 2 !== 0) { // Odd number of segments = collection
+        const collectionRef = collection(db, path);
+        const constraints = [];
+        if (options.orderBy) {
+            constraints.push(firestoreOrderBy(...options.orderBy));
+        }
+        if (options.where) {
+             constraints.push(firestoreWhere(...options.where));
+        }
+        q = query(collectionRef, ...constraints);
+    } else { // Even number of segments = document
+        q = doc(db, path);
     }
-}
 
-/**
- * Deletes a single job application from Firestore.
- * @param {string} userId - The UID of the current user.
- * @param {string} jobId - The ID of the job to delete.
- * @returns {Promise<void>}
- */
-export async function deleteJob(userId, jobId) {
-    if (!userId || !jobId) throw new Error("User ID and Job ID are required for deletion.");
-    const jobRef = doc(db, `users/${userId}/jobs`, jobId);
-    await deleteDoc(jobRef);
-}
-
-/**
- * Deletes multiple job applications in a single batch operation.
- * @param {string} userId - The UID of the current user.
- * @param {Set<string>} jobIds - A Set containing the IDs of the jobs to delete.
- * @returns {Promise<void>}
- */
-export async function deleteMultipleJobs(userId, jobIds) {
-    const batch = writeBatch(db);
-    jobIds.forEach(id => {
-        const docRef = doc(db, `users/${userId}/jobs`, id);
-        batch.delete(docRef);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (snapshot.docs) { // It's a collection
+            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            callback(docs);
+        } else if (snapshot.exists?.()) { // It's a document that exists
+            callback({ id: snapshot.id, ...snapshot.data() });
+        } else { // It's a document that doesn't exist or initial state
+            callback(null);
+        }
+    }, (error) => {
+        console.error(`Error listening to ${path}:`, error);
     });
-    await batch.commit();
-}
 
-// --- 2. EXPERIENCE BOOK API ---
-
-/**
- * Saves an experience entry to Firestore. Updates if an ID is provided, otherwise creates a new one.
- * @param {string} userId - The UID of the current user.
- * @param {object} expData - The experience data object to save.
- * @param {string|null} experienceId - The ID of the experience to update, or null to create.
- * @returns {Promise<void>}
- */
-export async function saveExperience(userId, expData, experienceId) {
-    if (experienceId) {
-        const expRef = doc(db, `users/${userId}/experiences`, experienceId);
-        await updateDoc(expRef, expData);
-    } else {
-        expData.createdAt = Timestamp.now();
-        expData.isFavorite = false;
-        const collectionRef = collection(db, `users/${userId}/experiences`);
-        await addDoc(collectionRef, expData);
-    }
+    return unsubscribe;
 }
 
 /**
- * Deletes a single experience entry from Firestore.
- * @param {string} userId - The UID of the current user.
- * @param {string} experienceId - The ID of the experience to delete.
- * @returns {Promise<void>}
+ * Fetches a single document from Firestore.
+ * @param {string} path The full path to the document (e.g., 'users/userId').
+ * @returns {Promise<object|null>} The document data or null if not found.
  */
-export async function deleteExperience(userId, experienceId) {
-    if (!userId || !experienceId) throw new Error("User ID and Experience ID are required for deletion.");
-    const expRef = doc(db, `users/${userId}/experiences`, experienceId);
-    await deleteDoc(expRef);
+export async function getDocument(path) {
+    const docRef = doc(db, path);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
 }
 
 /**
- * Toggles the 'isFavorite' status of an experience.
- * @param {string} userId - The UID of the current user.
- * @param {string} experienceId - The ID of the experience to toggle.
- * @param {boolean} currentFavoriteStatus - The current favorite status of the experience.
- * @returns {Promise<void>}
+ * Adds a new document to a Firestore collection.
+ * @param {string} path The path to the collection.
+ * @param {object} data The data for the new document.
+ * @returns {Promise<string>} The ID of the newly created document.
  */
-export async function toggleExperienceFavorite(userId, experienceId, currentFavoriteStatus) {
-    const expRef = doc(db, `users/${userId}/experiences`, experienceId);
-    await updateDoc(expRef, { isFavorite: !currentFavoriteStatus });
-}
-
-// --- 3. USER PROFILE & SETTINGS API ---
-
-/**
- * Updates the user's full name in both Firebase Auth and Firestore.
- * @param {object} user - The current Firebase Auth user object.
- * @param {string} fullName - The new full name.
- * @returns {Promise<void>}
- */
-export async function updateUserProfileName(user, fullName) {
-    const nameParts = fullName.split(' ') || [];
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    await updateProfile(user, { displayName: fullName });
-    
-    const userDocRef = doc(db, "users", user.uid);
-    await updateDoc(userDocRef, { 
-        fullName: fullName,
-        firstName: firstName,
-        lastName: lastName,
-        initials: `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase()
-    });
+export async function addDocument(path, data) {
+    const collectionRef = collection(db, path);
+    const docRef = await addDoc(collectionRef, data);
+    return docRef.id;
 }
 
 /**
- * Updates the current user's password in Firebase Authentication.
- * @param {object} user - The current Firebase Auth user object.
- * @param {string} newPassword - The new password.
+ * Updates an existing document in Firestore.
+ * @param {string} path The full path to the document to update.
+ * @param {object} data The fields to update.
  * @returns {Promise<void>}
  */
-export async function updateUserPassword(user, newPassword) {
-    await updatePassword(user, newPassword);
+export async function updateDocument(path, data) {
+    const docRef = doc(db, path);
+    await updateDoc(docRef, data);
 }
 
 /**
- * Uploads a profile image to Cloud Storage and updates the user's photoURL.
- * @param {object} user - The current Firebase Auth user object.
- * @param {File} file - The image file to upload.
- * @param {function} onProgress - A callback function to report upload progress.
+ * Deletes a document from Firestore.
+ * @param {string} path The full path to the document to delete.
  * @returns {Promise<void>}
  */
-export function uploadProfileImage(user, file, onProgress) {
-    const storageRef = ref(storage, `users/${user.uid}/profileImage`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+export async function deleteDocument(path) {
+    const docRef = doc(db, path);
+    await deleteDoc(docRef);
+}
 
+// ==========================================================================
+// FIREBASE AUTHENTICATION PROFILE API
+// ==========================================================================
+
+/**
+ * Updates the profile of the currently signed-in user in Firebase Auth.
+ * @param {object} profileData Data to update (e.g., { displayName, photoURL }).
+ * @returns {Promise<void>}
+ */
+export async function updateAuthProfile(profileData) {
+    if (!auth.currentUser) throw new Error("No user is currently signed in.");
+    await updateProfile(auth.currentUser, profileData);
+}
+
+/**
+ * Updates the password of the currently signed-in user.
+ * This is a sensitive operation and may require recent sign-in.
+ * @param {string} newPassword The new password.
+ * @returns {Promise<void>}
+ */
+export async function updateUserPassword(newPassword) {
+    if (!auth.currentUser) throw new Error("No user is currently signed in.");
+    await updatePassword(auth.currentUser, newPassword);
+}
+
+
+// ==========================================================================
+// CLOUD STORAGE API
+// ==========================================================================
+
+/**
+ * Uploads a file to Cloud Storage and returns its download URL.
+ * @param {string} path The full path in storage where the file should be saved (e.g., 'users/uid/profileImage.jpg').
+ * @param {File} file The file object to upload.
+ * @param {function} [onProgress] Optional callback to track upload progress (receives a number 0-100).
+ * @returns {Promise<string>} The public download URL of the uploaded file.
+ */
+export function uploadFile(path, file, onProgress) {
     return new Promise((resolve, reject) => {
-        uploadTask.on('state_changed', 
+        const storageRef = ref(storage, path);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on('state_changed',
             (snapshot) => {
                 const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                if (onProgress) onProgress(progress);
-            }, 
+                if (onProgress) {
+                    onProgress(progress);
+                }
+            },
             (error) => {
-                console.error("Upload failed:", error);
+                console.error("File upload failed:", error);
                 reject(error);
-            }, 
+            },
             async () => {
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                await updateProfile(user, { photoURL: downloadURL });
-                const userDocRef = doc(db, "users", user.uid);
-                await updateDoc(userDocRef, { photoURL: downloadURL });
-                resolve(downloadURL);
-            }
-        );
-    });
-}
-
-// --- 4. DOCUMENT MANAGEMENT API ---
-
-/**
- * Uploads a master document to Cloud Storage and creates a metadata record in Firestore.
- * @param {string} userId - The UID of the current user.
- * @param {File} file - The document file to upload.
- * @returns {Promise<void>}
- */
-export function uploadMasterDocument(userId, file) {
-    const storageRef = ref(storage, `users/${userId}/documents/${Date.now()}_${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    return new Promise((resolve, reject) => {
-        uploadTask.on('state_changed', 
-            null, 
-            (error) => {
-                console.error("Document upload failed:", error);
-                reject(error);
-            }, 
-            async () => {
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                const docData = {
-                    name: file.name,
-                    url: downloadURL,
-                    size: file.size,
-                    uploadedAt: Timestamp.now()
-                };
-                await addDoc(collection(db, `users/${userId}/documents`), docData);
-                resolve();
+                try {
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    resolve(downloadURL);
+                } catch (error) {
+                    console.error("Failed to get download URL:", error);
+                    reject(error);
+                }
             }
         );
     });
 }
 
 /**
- * Deletes a master document from Cloud Storage and its metadata from Firestore.
- * @param {string} userId - The UID of the current user.
- * @param {object} docToDelete - The document object from the cache, containing id and url.
+ * Deletes a file from Cloud Storage.
+ * @param {string} path The full path in storage of the file to delete.
  * @returns {Promise<void>}
  */
-export async function deleteMasterDocument(userId, docToDelete) {
-    if (!docToDelete || !docToDelete.url || !docToDelete.id) {
-        throw new Error("Invalid document data provided for deletion.");
-    }
-    const fileRef = ref(storage, docToDelete.url);
-    await deleteObject(fileRef);
-    await deleteDoc(doc(db, `users/${userId}/documents`, docToDelete.id));
-}
-
-
-// --- 5. DANGER ZONE API ---
-
-/**
- * Deletes all of a user's data (Firestore subcollections, Storage files) and then their Auth account.
- * @param {object} user - The current Firebase Auth user object.
- * @returns {Promise<void>}
- */
-export async function deleteUserAccount(user) {
-    const userId = user.uid;
-
-    // Batch delete all subcollections in Firestore
-    const batch = writeBatch(db);
-    const jobsRef = collection(db, `users/${userId}/jobs`);
-    const experiencesRef = collection(db, `users/${userId}/experiences`);
-    const documentsRef = collection(db, `users/${userId}/documents`);
-
-    const jobsSnapshot = await getDocs(jobsRef);
-    jobsSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    const experiencesSnapshot = await getDocs(experiencesRef);
-    experiencesSnapshot.forEach(doc => batch.delete(doc.ref));
-
-    const documentsSnapshot = await getDocs(documentsRef);
-    documentsSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // Delete the main user document
-    batch.delete(doc(db, "users", userId));
-    
-    await batch.commit();
-
-    // Delete all files in user's Storage folder
-    const userStorageRef = ref(storage, `users/${userId}/`);
-    const allFiles = await listAll(userStorageRef);
-    const deletePromises = allFiles.items.map(itemRef => deleteObject(itemRef));
-    await Promise.all(deletePromises);
-
-    // Finally, delete the user from Firebase Authentication
-    await deleteUser(user);
+export async function deleteFile(path) {
+    const storageRef = ref(storage, path);
+    await deleteObject(storageRef);
 }
