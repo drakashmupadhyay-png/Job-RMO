@@ -99,3 +99,75 @@ export function debounce(func, delay = 300) {
         }, delay);
     };
 }
+
+// --- In utils.js, ADD this new function ---
+
+/**
+ * Formats a Date object specifically for the value attribute of an <input>.
+ * @param {Date} date The Date object.
+ * @param {boolean} includeTime Whether to format for 'datetime-local' or just 'date'.
+ * @returns {string} A string like 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:mm'.
+ */
+export function formatDateForInput(date, includeTime = false) {
+    if (!(date instanceof Date) || isNaN(date)) return '';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    if (includeTime) {
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+    
+    return `${year}-${month}-${day}`;
+}
+
+
+// --- In utils.js, ADD this new function ---
+
+/**
+ * Truncates a string to a specified length and adds an ellipsis.
+ * @param {string} str The string to truncate.
+ * @param {number} maxLength The maximum length of the string.
+ * @returns {string} The truncated string.
+ */
+export function truncate(str, maxLength) {
+    if (!str || str.length <= maxLength) return str;
+    return str.slice(0, maxLength) + '...';
+}
+
+// --- In utils.js, ADD these new functions ---
+
+/**
+ * Formats a file size in bytes into a human-readable string (KB, MB, GB).
+ * @param {number} bytes The file size in bytes.
+ * @returns {string} The formatted file size.
+ */
+export function formatFileSize(bytes) {
+    if (!bytes || isNaN(bytes)) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Returns a Font Awesome icon class based on the file's MIME type.
+ * @param {string} mimeType The MIME type of the file.
+ * @param {boolean} large Whether to return a large (3x) icon class.
+ * @returns {string} The Font Awesome class string.
+ */
+export function getFileIcon(mimeType, large = false) {
+    const sizeClass = large ? ' fa-3x' : '';
+    if (!mimeType) return `fa-solid fa-file${sizeClass}`;
+    
+    if (mimeType.includes('pdf')) return `fa-solid fa-file-pdf${sizeClass}`;
+    if (mimeType.includes('word')) return `fa-solid fa-file-word${sizeClass}`;
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return `fa-solid fa-file-excel${sizeClass}`;
+    if (mimeType.startsWith('image/')) return `fa-solid fa-file-image${sizeClass}`;
+    if (mimeType.startsWith('video/')) return `fa-solid fa-file-video${sizeClass}`;
+    
+    return `fa-solid fa-file-alt${sizeClass}`; // Generic file icon
+}
