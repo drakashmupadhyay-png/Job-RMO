@@ -74,9 +74,19 @@
         <div id="main-workspace">
             
             <header id="global-header">
-                <button id="mobile-menu-btn" aria-label="Open Menu"><i class="fa-solid fa-bars"></i></button>
+                <div class="header-left-wrapper">
+                    <button id="mobile-menu-btn" aria-label="Open Menu"><i class="fa-solid fa-bars"></i></button>
+                    <div class="header-title-area">
+                        <div class="nav-logo"><i class="fa-solid fa-briefcase-medical"></i><h1>RMO Job-Flow</h1></div>
+                    </div>
+                </div>
                 <div class="header-user-area">
-                    <button id="smart-reminders-btn" class="icon-btn" title="Urgent Reminders"><i class="fa-solid fa-bell"></i><span id="reminders-badge" class="badge hidden">0</span></button>
+                    <div class="reminders-container">
+                        <button id="smart-reminders-btn" class="icon-btn" title="Urgent Reminders"><i class="fa-solid fa-bell"></i><span id="reminders-badge" class="badge hidden">0</span></button>
+                        <div id="reminders-dropdown" class="dropdown-menu hidden">
+                            <!-- Reminders will be inserted here by ui.js -->
+                        </div>
+                    </div>
                     <div class="nav-user">
                         <span class="nav-welcome-text">Welcome, <span id="nav-user-name">User</span></span>
                         <div class="nav-user-menu" id="nav-user-menu">
