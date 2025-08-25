@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.7 - Page Switching Fix)
+// RMO Job-Flow - main.js (v2.8 - Data Handling Fix)
 // Description: The central "brain" of the application. Manages state,
 // orchestrates modules, and handles all business logic and event listeners.
 // ---
@@ -84,7 +84,17 @@ function setupRealtimeListeners(userId) {
     });
 
     const jobsUnsubscribe = api.setupRealtimeListener(`users/${userId}/jobs`, (docs) => {
-        appState.jobs = docs.map(job => ({...job, closingDate: job.closingDate?.toDate(), followUpDate: job.followUpDate?.toDate(), interviewDate: job.interviewDate?.toDate(), commencementDate: job.commencementDate?.toDate() }));
+        // THE FIX: Add robust checks before calling .toDate()
+        appState.jobs = docs.map(job => {
+            const isTimestamp = (field) => field && typeof field.toDate === 'function';
+            return {
+                ...job,
+                closingDate: isTimestamp(job.closingDate) ? job.closingDate.toDate() : null,
+                followUpDate: isTimestamp(job.followUpDate) ? job.followUpDate.toDate() : null,
+                interviewDate: isTimestamp(job.interviewDate) ? job.interviewDate.toDate() : null,
+                commencementDate: isTimestamp(job.commencementDate) ? job.commencementDate.toDate() : null
+            };
+        });
         checkReminders();
         if (appState.ui.currentPage === 'dashboard') {
             ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
@@ -99,7 +109,14 @@ function setupRealtimeListeners(userId) {
     });
 
     const documentsUnsubscribe = api.setupRealtimeListener(`users/${userId}/documents`, (docs) => {
-        appState.documents = docs.map(doc => ({...doc, uploadedAt: doc.uploadedAt?.toDate() }));
+        // THE FIX: Add robust checks before calling .toDate()
+        appState.documents = docs.map(doc => {
+            const isTimestamp = (field) => field && typeof field.toDate === 'function';
+            return {
+                ...doc,
+                uploadedAt: isTimestamp(doc.uploadedAt) ? doc.uploadedAt.toDate() : null
+            };
+        });
         if (appState.ui.currentPage === 'documents') {
             ui.renderDocumentsPage(appState.documents, [], appState.ui.documentViewMode);
         }
