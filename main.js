@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.8 - Data Handling Fix)
+// RMO Job-Flow - main.js (v2.9 - Filtering Logic)
 // Description: The central "brain" of the application. Manages state,
 // orchestrates modules, and handles all business logic and event listeners.
 // ---
@@ -26,8 +26,8 @@ let appState = {
         activeJobId: null,
         activeExperienceId: null,
         activeDocumentId: null,
-        dashboardView: 'table', // 'table' or 'calendar'
-        documentViewMode: 'list', // 'list' or 'grid'
+        dashboardView: 'table', 
+        documentViewMode: 'list',
         isRemindersOpen: false,
     },
     filters: {
@@ -84,7 +84,6 @@ function setupRealtimeListeners(userId) {
     });
 
     const jobsUnsubscribe = api.setupRealtimeListener(`users/${userId}/jobs`, (docs) => {
-        // THE FIX: Add robust checks before calling .toDate()
         appState.jobs = docs.map(job => {
             const isTimestamp = (field) => field && typeof field.toDate === 'function';
             return {
@@ -109,7 +108,6 @@ function setupRealtimeListeners(userId) {
     });
 
     const documentsUnsubscribe = api.setupRealtimeListener(`users/${userId}/documents`, (docs) => {
-        // THE FIX: Add robust checks before calling .toDate()
         appState.documents = docs.map(doc => {
             const isTimestamp = (field) => field && typeof field.toDate === 'function';
             return {
@@ -304,7 +302,6 @@ function handleFabClick() {
 }
 
 function handleDashboardClicks(e) {
-    // View Switcher Logic
     const viewBtn = e.target.closest('.view-btn');
     if (viewBtn) {
         const newView = viewBtn.id === 'calendar-view-btn' ? 'calendar' : 'table';
@@ -314,7 +311,6 @@ function handleDashboardClicks(e) {
         }
     }
 
-    // Filter Panel Logic
     if (e.target.closest('#toggle-filters-btn')) {
         appState.ui.isFilterPanelOpen = !appState.ui.isFilterPanelOpen;
         ui.toggleFilterPanel(appState.ui.isFilterPanelOpen);
@@ -328,7 +324,6 @@ function handleDashboardClicks(e) {
         ui.toggleFilterPanel(false);
     }
 
-    // Row interaction Logic
     const row = e.target.closest('.interactive-row');
     if (row) {
         const jobId = row.dataset.jobId;
@@ -379,15 +374,30 @@ function handleExperienceBookClicks(e) {
     if (e.target.closest('#delete-exp-btn')) {
         handleDeleteExperience();
     }
+    
+    // THE FIX: Handle tag filter clicks
     const tagBtn = e.target.closest('.tag-filter-btn');
     if(tagBtn) {
         const tag = tagBtn.dataset.tag;
-        // Logic for tag filtering will be added in a future update
+        const activeTags = appState.filters.experienceBook.tags;
+        
+        if (tag === 'all') {
+            activeTags.length = 0; // Clear the array
+        } else {
+            const tagIndex = activeTags.indexOf(tag);
+            if (tagIndex > -1) {
+                activeTags.splice(tagIndex, 1); // Remove tag if it's already active
+            } else {
+                activeTags.push(tag); // Add tag if it's not active
+            }
+        }
+        
+        // Re-render the experience book with the new filters
+        ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
     }
 }
 
 function handleDocumentsClicks(e) {
-    // View Switcher
     const viewBtn = e.target.closest('.view-btn');
     if (viewBtn) {
         const newView = viewBtn.id === 'doc-grid-view-btn' ? 'grid' : 'list';
@@ -397,18 +407,15 @@ function handleDocumentsClicks(e) {
         }
     }
 
-    // New Folder Button
     if (e.target.closest('#add-folder-btn')) {
         const folderName = prompt("Enter the name for the new folder:");
         if (folderName && folderName.trim()) {
             console.log("Creating new folder:", folderName.trim());
             ui.showToast(`Creating folder "${folderName.trim()}"...`);
-            // This is a placeholder for now. In a future update, we would call an API function.
             ui.showToast("Folder creation is not yet implemented.", "error");
         }
     }
 
-    // Inspector
     const docItem = e.target.closest('.interactive-row, .doc-grid-item');
     if (docItem) {
         appState.ui.activeDocumentId = docItem.dataset.docId;
@@ -424,13 +431,12 @@ function handleDocumentsClicks(e) {
 
 function handleDashboardSearch(e) {
     appState.filters.dashboard.search = e.target.value;
-    // Filtering logic will be fully implemented in a future update
     ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
 }
 
 function handleDashboardFilterChange(e) {
     if (e.target.tagName === 'SELECT') {
-        const filterKey = e.target.id.replace('-filter', ''); // 'state', 'type', 'status'
+        const filterKey = e.target.id.replace('-filter', '');
         const filterMap = {
             state: 'state',
             type: 'type',
@@ -440,7 +446,6 @@ function handleDashboardFilterChange(e) {
         const stateKey = filterMap[filterKey];
         if (stateKey) {
             appState.filters.dashboard[stateKey] = e.target.value;
-            // Full filtering logic to be added
             ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
         }
     }
@@ -448,7 +453,6 @@ function handleDashboardFilterChange(e) {
 
 function handleExperienceSearch(e) {
     appState.filters.experienceBook.search = e.target.value;
-    // Filtering logic will be added
     ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
 }
 
@@ -592,8 +596,8 @@ function getUrgentJobs() {
     endOfToday.setHours(23, 59, 59, 999);
     const activeJobs = appState.jobs.filter(job => !['Closed', 'Offer Declined', 'Unsuccessful'].includes(job.status));
     return activeJobs.filter(job => {
-        const isClosingToday = job.closingDate && job.closingDate <= endOfToday;
-        const isFollowUpDue = job.followUpDate && !job.followUpComplete && job.followUpDate <= endOfToday;
+        const isClosingToday = job.closingDate && new Date(job.closingDate) <= endOfToday;
+        const isFollowUpDue = job.followUpDate && !job.followUpComplete && new Date(job.followUpDate) <= endOfToday;
         return isClosingToday || isFollowUpDue;
     });
 }
