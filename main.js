@@ -1,60 +1,8 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.10 - Actions Menu & Header Title)
-// Description: The central "brain" of the application. Manages state,
-// orchestrates modules, and handles all business logic and event listeners.
-// ---
-
-import { auth } from './firebase-config.js';
-import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import * as api from './api.js';
-import * as ui from './ui.js';
-import * as utils from './utils.js';
-
-// --- GLOBAL STATE ---
-let currentUser = null;
-let userProfileData = {};
-let appState = {
-    jobs: [],
-    experiences: [],
-    documents: [],
-    ui: {
-        currentPage: 'dashboard',
-        isFilterPanelOpen: false,
-        isSidebarCollapsed: false,
-        activeJobId: null,
-        activeExperienceId: null,
-        activeDocumentId: null,
-        dashboardView: 'table', 
-        documentViewMode: 'list',
-        isRemindersOpen: false,
-        activeActionMenu: null, // Holds the ID of the job whose action menu is open
-    },
-    filters: {
-        dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' },
-        experienceBook: { search: '', tags: [] }
-    }
-};
-let realtimeListeners = [];
-let currentPageCleanup = () => {};
-let clockInterval = null;
-
-// --- PRIMARY ENTRY/EXIT POINTS (Called by auth.js) ---
-
-export function initializeMainApp(user) {
-    currentUser = user;
-    console.log("Initializing main application for user:", user.uid);
-    ui.renderFooter();
-    if (clockInterval) clearInterval(clockInterval);
-    clockInterval = setInterval(() => ui.updateClock(userProfileData.preferences?.timezone), 1000);
-    setupRealtimeListeners(user.uid);
-    attachGlobalEventListeners();
-    navigateTo(window.location.hash || '#dashboard');
-}
-
-export function cleanupMainApp() {
-    console.log("Cleaning up main application.");
+// RMO Job-Flow - main.js (v2.5 - Bug Fixes & UI Polish)
+// Description: The central "brain" of the application. Manages state,    console.log("Cleaning up main application.");
     if(clockInterval) clearInterval(clockInterval);
     realtimeListeners.forEach(unsubscribe => unsubscribe());
     realtimeListeners = [];
@@ -65,7 +13,7 @@ export function cleanupMainApp() {
     userProfileData = {};
     appState = {
         jobs: [], experiences: [], documents: [],
-        ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null, dashboardView: 'table', documentViewMode: 'list', isRemindersOpen: false, activeActionMenu: null },
+        ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null, dashboardView: 'table', documentViewMode: 'list', isRemindersOpen: false },
         filters: { dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' }, experienceBook: { search: '', tags: [] } }
     };
 }
@@ -85,16 +33,7 @@ function setupRealtimeListeners(userId) {
     });
 
     const jobsUnsubscribe = api.setupRealtimeListener(`users/${userId}/jobs`, (docs) => {
-        appState.jobs = docs.map(job => {
-            const isTimestamp = (field) => field && typeof field.toDate === 'function';
-            return {
-                ...job,
-                closingDate: isTimestamp(job.closingDate) ? job.closingDate.toDate() : null,
-                followUpDate: isTimestamp(job.followUpDate) ? job.followUpDate.toDate() : null,
-                interviewDate: isTimestamp(job.interviewDate) ? job.interviewDate.toDate() : null,
-                commencementDate: isTimestamp(job.commencementDate) ? job.commencementDate.toDate() : null
-            };
-        });
+        appState.jobs = docs.map(job => ({...job, closingDate: job.closingDate?.toDate(), followUpDate: job.followUpDate?.toDate(), interviewDate: job.interviewDate?.toDate(), commencementDate: job.commencementDate?.toDate() }));
         checkReminders();
         if (appState.ui.currentPage === 'dashboard') {
             ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
@@ -109,13 +48,7 @@ function setupRealtimeListeners(userId) {
     });
 
     const documentsUnsubscribe = api.setupRealtimeListener(`users/${userId}/documents`, (docs) => {
-        appState.documents = docs.map(doc => {
-            const isTimestamp = (field) => field && typeof field.toDate === 'function';
-            return {
-                ...doc,
-                uploadedAt: isTimestamp(doc.uploadedAt) ? doc.uploadedAt.toDate() : null
-            };
-        });
+        appState.documents = docs.map(doc => ({...doc, uploadedAt: doc.uploadedAt?.toDate() }));
         if (appState.ui.currentPage === 'documents') {
             ui.renderDocumentsPage(appState.documents, [], appState.ui.documentViewMode);
         }
@@ -173,12 +106,25 @@ function attachGlobalEventListeners() {
     document.getElementById('app-sidebar').addEventListener('click', handleSidebarClicks);
     document.getElementById('global-header').addEventListener('click', handleHeaderClicks);
     document.getElementById('fab').addEventListener('click', handleFabClick);
+
+    // --- FIX APPLIED HERE ---
+    // Attach file input listeners globally since the inputs exist on page load.
+    const profileUploadInput = document.getElementById('profile-image-upload');
+    if (profileUploadInput) {
+        profileUploadInput.addEventListener('change', handleProfileImageUpload);
+    }
+
+    const masterDocInput = document.getElementById('master-doc-file-input');
+    if (masterDocInput) {
+        masterDocInput.addEventListener('change', (e) => handleMasterDocumentUpload(e));
+    }
 }
 
 function setupDashboardListeners() {
     const dashboardEl = document.getElementById('dashboard');
     dashboardEl.addEventListener('click', handleDashboardClicks);
 
+    // Filter/Sort Listeners
     const filterPanel = document.getElementById('filter-panel');
     filterPanel.addEventListener('change', handleDashboardFilterChange);
     
@@ -199,19 +145,13 @@ function setupSettingsListeners() {
     
     const timezoneSelect = document.getElementById('timezone-selector');
     const handleTimezoneChange = (e) => api.updateUserDocument(currentUser.uid, { 'preferences.timezone': e.target.value });
-    if (timezoneSelect) {
-        timezoneSelect.addEventListener('change', handleTimezoneChange);
-    }
+    timezoneSelect.addEventListener('change', handleTimezoneChange);
     
-    const profileUpload = document.getElementById('profile-image-upload');
-    profileUpload.addEventListener('change', handleProfileImageUpload);
+    // The profile image upload listener is now global, so it's removed from here.
 
     return () => {
         settingsEl.removeEventListener('click', handleSettingsClicks);
-        if (timezoneSelect) {
-            timezoneSelect.removeEventListener('change', handleTimezoneChange);
-        }
-        profileUpload.removeEventListener('change', handleProfileImageUpload);
+        timezoneSelect.removeEventListener('change', handleTimezoneChange);
     };
 }
 
@@ -241,14 +181,12 @@ function setupDocumentsListeners() {
     const dropzone = document.getElementById('upload-dropzone');
     const docInput = document.getElementById('master-doc-file-input');
     const dropzoneClickHandler = () => docInput.click();
-    const docInputChangeHandler = (e) => handleMasterDocumentUpload(e);
     
     dropzone.addEventListener('click', dropzoneClickHandler);
-    docInput.addEventListener('change', docInputChangeHandler);
+    // The document input change listener is now global, so it's removed from here.
 
     return () => {
         dropzone.removeEventListener('click', dropzoneClickHandler);
-        docInput.removeEventListener('change', docInputChangeHandler);
     };
 }
 
@@ -259,11 +197,6 @@ function handleGlobalClick(e) {
     if (!e.target.closest('.reminders-container')) {
         appState.ui.isRemindersOpen = false;
         ui.toggleRemindersDropdown(false);
-    }
-    // THE FIX: Close the actions menu if clicking outside of it
-    if (!e.target.closest('.actions-menu-btn') && !e.target.closest('#actions-menu')) {
-        ui.closeActionsMenu();
-        appState.ui.activeActionMenu = null;
     }
 }
 
@@ -292,8 +225,7 @@ function handleHeaderClicks(e) {
 }
 
 function handleFabClick() {
-    const page = appState.ui.currentPage.split('/')[0];
-    switch (page) {
+    switch (appState.ui.currentPage) {
         case 'dashboard':
             window.location.hash = '#applicationDetail/new';
             break;
@@ -308,6 +240,7 @@ function handleFabClick() {
 }
 
 function handleDashboardClicks(e) {
+    // View Switcher Logic
     const viewBtn = e.target.closest('.view-btn');
     if (viewBtn) {
         const newView = viewBtn.id === 'calendar-view-btn' ? 'calendar' : 'table';
@@ -317,6 +250,7 @@ function handleDashboardClicks(e) {
         }
     }
 
+    // Filter Panel Logic
     if (e.target.closest('#toggle-filters-btn')) {
         appState.ui.isFilterPanelOpen = !appState.ui.isFilterPanelOpen;
         ui.toggleFilterPanel(appState.ui.isFilterPanelOpen);
@@ -329,33 +263,15 @@ function handleDashboardClicks(e) {
         appState.ui.isFilterPanelOpen = false;
         ui.toggleFilterPanel(false);
     }
-    
-    // Actions Menu Logic
-    const actionMenuBtn = e.target.closest('.actions-menu-btn');
-    if (actionMenuBtn) {
-        const jobId = actionMenuBtn.dataset.jobId;
-        appState.ui.activeActionMenu = jobId;
-        const job = appState.jobs.find(j => j.id === jobId);
-        ui.showActionsMenu(actionMenuBtn, job);
-    }
 
-    // Handle clicks inside the actions menu
-    const actionMenuItem = e.target.closest('.context-menu-item');
-    if (actionMenuItem) {
-        const action = actionMenuItem.dataset.action;
-        const jobId = appState.ui.activeActionMenu;
-        handleJobAction(action, jobId);
-        ui.closeActionsMenu();
-        appState.ui.activeActionMenu = null;
-    }
-
+    // Row interaction Logic
     const row = e.target.closest('.interactive-row');
-    if (row && !actionMenuBtn && !actionMenuItem) {
+    if (row) {
         const jobId = row.dataset.jobId;
         const job = appState.jobs.find(j => j.id === jobId);
         if (e.target.closest('.expand-icon')) {
             ui.toggleRowExpansion(row, job);
-        } else {
+        } else if (!e.target.closest('.actions-menu-btn')) {
             window.location.hash = `#applicationDetail/${jobId}`;
         }
     }
@@ -379,8 +295,8 @@ function handleSettingsClicks(e) {
 
 function handleApplicationDetailClicks(e) {
     if(e.target.closest('#save-app-btn')) handleSaveApplication();
-    if(e.target.closest('#delete-app-btn')) handleDeleteApplication(appState.ui.activeJobId);
-    if(e.target.closest('#duplicate-app-btn')) handleDuplicateApplication(appState.ui.activeJobId);
+    if(e.target.closest('#delete-app-btn')) handleDeleteApplication();
+    if(e.target.closest('#duplicate-app-btn')) handleDuplicateApplication();
 }
 
 function handleExperienceBookClicks(e) {
@@ -399,28 +315,15 @@ function handleExperienceBookClicks(e) {
     if (e.target.closest('#delete-exp-btn')) {
         handleDeleteExperience();
     }
-    
     const tagBtn = e.target.closest('.tag-filter-btn');
     if(tagBtn) {
         const tag = tagBtn.dataset.tag;
-        const activeTags = appState.filters.experienceBook.tags;
-        
-        if (tag === 'all') {
-            activeTags.length = 0;
-        } else {
-            const tagIndex = activeTags.indexOf(tag);
-            if (tagIndex > -1) {
-                activeTags.splice(tagIndex, 1);
-            } else {
-                activeTags.push(tag);
-            }
-        }
-        
-        ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
+        // Logic for tag filtering will be added in a future update
     }
 }
 
 function handleDocumentsClicks(e) {
+    // View Switcher
     const viewBtn = e.target.closest('.view-btn');
     if (viewBtn) {
         const newView = viewBtn.id === 'doc-grid-view-btn' ? 'grid' : 'list';
@@ -429,16 +332,7 @@ function handleDocumentsClicks(e) {
             ui.renderDocumentsPage(appState.documents, [], newView);
         }
     }
-
-    if (e.target.closest('#add-folder-btn')) {
-        const folderName = prompt("Enter the name for the new folder:");
-        if (folderName && folderName.trim()) {
-            console.log("Creating new folder:", folderName.trim());
-            ui.showToast(`Creating folder "${folderName.trim()}"...`);
-            ui.showToast("Folder creation is not yet implemented.", "error");
-        }
-    }
-
+    // Inspector
     const docItem = e.target.closest('.interactive-row, .doc-grid-item');
     if (docItem) {
         appState.ui.activeDocumentId = docItem.dataset.docId;
@@ -452,31 +346,15 @@ function handleDocumentsClicks(e) {
 
 // --- ACTION LOGIC ---
 
-function handleJobAction(action, jobId) {
-    if (!jobId) return;
-
-    switch (action) {
-        case 'edit':
-            window.location.hash = `#applicationDetail/${jobId}`;
-            break;
-        case 'duplicate':
-            handleDuplicateApplication(jobId);
-            break;
-        case 'delete':
-            handleDeleteApplication(jobId);
-            break;
-        // Add more cases here for changing status, etc.
-    }
-}
-
 function handleDashboardSearch(e) {
     appState.filters.dashboard.search = e.target.value;
+    // Filtering logic will be fully implemented in a future update
     ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
 }
 
 function handleDashboardFilterChange(e) {
     if (e.target.tagName === 'SELECT') {
-        const filterKey = e.target.id.replace('-filter', '');
+        const filterKey = e.target.id.replace('-filter', ''); // 'state', 'type', 'status'
         const filterMap = {
             state: 'state',
             type: 'type',
@@ -486,6 +364,7 @@ function handleDashboardFilterChange(e) {
         const stateKey = filterMap[filterKey];
         if (stateKey) {
             appState.filters.dashboard[stateKey] = e.target.value;
+            // Full filtering logic to be added
             ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
         }
     }
@@ -493,6 +372,7 @@ function handleDashboardFilterChange(e) {
 
 function handleExperienceSearch(e) {
     appState.filters.experienceBook.search = e.target.value;
+    // Filtering logic will be added
     ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
 }
 
@@ -567,20 +447,20 @@ async function handleSaveApplication() {
     } catch(err) { ui.showToast(`Could not save: ${err.message}`, "error"); }
 }
 
-async function handleDeleteApplication(idToDelete) {
+async function handleDeleteApplication() {
+    const idToDelete = appState.ui.activeJobId;
     if (!idToDelete || idToDelete === 'new' || idToDelete === 'new-from-duplicate') return;
     if (confirm("Are you sure you want to permanently delete this application? This action cannot be undone.")) {
         try {
             await api.deleteDocument(`users/${currentUser.uid}/jobs/${idToDelete}`);
             ui.showToast("Application deleted.", "success");
-            if (appState.ui.currentPage === 'applicationDetail') {
-                window.location.hash = '#dashboard';
-            }
+            window.location.hash = '#dashboard';
         } catch (err) { ui.showToast(`Deletion failed: ${err.message}`, "error"); }
     }
 }
 
-function handleDuplicateApplication(idToDup) {
+function handleDuplicateApplication() {
+    const idToDup = appState.ui.activeJobId;
     if (!idToDup) return;
     const originalJob = appState.jobs.find(j => j.id === idToDup);
     if (originalJob) {
@@ -636,8 +516,8 @@ function getUrgentJobs() {
     endOfToday.setHours(23, 59, 59, 999);
     const activeJobs = appState.jobs.filter(job => !['Closed', 'Offer Declined', 'Unsuccessful'].includes(job.status));
     return activeJobs.filter(job => {
-        const isClosingToday = job.closingDate && new Date(job.closingDate) <= endOfToday;
-        const isFollowUpDue = job.followUpDate && !job.followUpComplete && new Date(job.followUpDate) <= endOfToday;
+        const isClosingToday = job.closingDate && job.closingDate <= endOfToday;
+        const isFollowUpDue = job.followUpDate && !job.followUpComplete && job.followUpDate <= endOfToday;
         return isClosingToday || isFollowUpDue;
     });
 }
