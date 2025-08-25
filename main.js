@@ -14,17 +14,17 @@ import * as utils from './utils.js';
 
 //--- GLOBAL STATE ---
 let currentUser = null;
-let userProfileData = {}:
+let userProfileData = {};
 let appState = {
     jobs: [],
     experiences: [],
     documents: [],
     ui: {
         currentPage: 'dashboard',
-        isFilterPanel0pen: false, 
+        isFilterPanelOpen: false, 
         isSidebarCollapsed: false, 
         activeJobId: null,
-        activeExperienceld: null,
+        activeExperienceId: null,
         activeDocumentId: null,
         dashboardView: 'table', 
         documentViewMode: 'list', 
@@ -45,12 +45,12 @@ let clockInterval = null;
 export function initializeMainApp(user) {
     currentUser = user;
     console.log("Initializing main application for user:", user.uid); 
-    ui. renderFooter();
+    ui.renderFooter();
     if (clockInterval) clearInterval(clockInterval);
-    clockInterval = setInterval(() => ui.updateClock(userProfileData. preferences?. timezone), 1000);
+    clockInterval = setInterval(() => ui.updateClock(userProfileData.preferences?.timezone), 1000);
     setupRealtimeListeners(user.uid);
     attachGlobalEventListeners();
-    navigateTo (window.location.hash || '#dashboard');
+    navigateTo(window.location.hash || '#dashboard');
 }
 
 export function cleanupMainApp() {
