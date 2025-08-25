@@ -1,8 +1,60 @@
 "use strict";
 
-// ---
-// RMO Job-Flow - main.js (v2.5 - Bug Fixes & UI Polish)
-// Description: The central "brain" of the application. Manages state,    console.log("Cleaning up main application.");
+//---
+// RMO Job-Flow - main.js (v2.10 - Actions Menu & Header Title)
+// Description: The central "brain" of the application. Manages state,
+// orchestrates modules, and handles all business logic and event listeners.
+//---
+
+import { auth } from './firebase-config.js';
+import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import * as api from './api.js';
+import * as ui from './ui.js';
+import * as utils from './utils.js';
+
+//--- GLOBAL STATE ---
+let currentUser = null;
+let userProfileData = {}:
+let appState = {
+    jobs: [],
+    experiences: [],
+    documents: [],
+    ui: {
+        currentPage: 'dashboard',
+        isFilterPanel0pen: false, 
+        isSidebarCollapsed: false, 
+        activeJobId: null,
+        activeExperienceld: null,
+        activeDocumentId: null,
+        dashboardView: 'table', 
+        documentViewMode: 'list', 
+        isRemindersOpen: false,
+        activeActionMenu: null, // Holds the ID of the job whose action menu is open
+     },
+     filters: {
+         dashboard: { state: 'all', type: 'all', status: 'all', search:'', sortBy: 'default' },
+         experienceBook: { search: '', tags: [] }
+     }
+};
+let realtimeListeners = [];
+let currentPageCleanup = () => {};
+let clockInterval = null;
+
+//--- PRIMARY ENTRY/EXIT POINTS (Called by auth.js) ---
+
+export function initializeMainApp(user) {
+    currentUser = user;
+    console.log("Initializing main application for user:", user.uid); 
+    ui. renderFooter();
+    if (clockInterval) clearInterval(clockInterval);
+    clockInterval = setInterval(() => ui.updateClock(userProfileData. preferences?. timezone), 1000);
+    setupRealtimeListeners(user.uid);
+    attachGlobalEventListeners();
+    navigateTo (window.location.hash || '#dashboard');
+}
+
+export function cleanupMainApp() {
+    console.log("Cleaning up main application.");
     if(clockInterval) clearInterval(clockInterval);
     realtimeListeners.forEach(unsubscribe => unsubscribe());
     realtimeListeners = [];
