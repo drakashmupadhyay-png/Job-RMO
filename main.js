@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.3 - Final Blueprint Implementation)
+// RMO Job-Flow - main.js (v2.4 - Final Implementation)
 // Description: The central "brain" of the application. Manages state,
 // orchestrates modules, and handles all business logic and event listeners.
 // This is the complete, unabridged version.
@@ -43,6 +43,7 @@ export function initializeMainApp(user) {
     currentUser = user;
     console.log("Initializing main application for user:", user.uid);
     ui.renderFooter();
+    if (clockInterval) clearInterval(clockInterval);
     clockInterval = setInterval(() => ui.updateClock(userProfileData.preferences?.timezone), 1000);
     setupRealtimeListeners(user.uid);
     attachGlobalEventListeners();
@@ -288,6 +289,10 @@ function handleSettingsClicks(e) {
         const theme = themeButton.dataset.theme;
         api.updateUserDocument(currentUser.uid, { 'preferences.theme': theme });
     }
+    const timezoneSelect = e.target.closest('#timezone-selector');
+    if(timezoneSelect) {
+        api.updateUserDocument(currentUser.uid, { 'preferences.timezone': timezoneSelect.value });
+    }
     if(e.target.closest('#save-profile-btn')) handleSaveProfile();
     if(e.target.closest('#update-password-btn')) handleUpdatePassword();
     if(e.target.closest('#interactive-avatar')) document.getElementById('profile-image-upload').click();
@@ -311,6 +316,9 @@ function handleExperienceBookClicks(e) {
     }
     if (e.target.closest('#save-exp-btn')) {
         handleSaveExperience();
+    }
+    if (e.target.closest('#delete-exp-btn')) {
+        handleDeleteExperience();
     }
 }
 
@@ -393,7 +401,7 @@ async function handleMasterDocumentUpload(e) {
 async function handleSaveApplication() {
     const formData = ui.getApplicationFormData();
     if (!formData.jobTitle) { ui.showToast("Job Title is required.", "error"); return; }
-    const isNew = !appState.ui.activeJobId || appState.ui.activeJobId === 'new';
+    const isNew = !appState.ui.activeJobId || appState.ui.activeJobId === 'new' || appState.ui.activeJobId === 'new-from-duplicate';
     const docPath = `users/${currentUser.uid}/jobs`;
     ui.showToast(isNew ? "Creating application..." : "Updating application...");
     try {
@@ -411,7 +419,7 @@ async function handleSaveApplication() {
 
 async function handleDeleteApplication() {
     const idToDelete = appState.ui.activeJobId;
-    if (!idToDelete) return;
+    if (!idToDelete || idToDelete === 'new' || idToDelete === 'new-from-duplicate') return;
     if (confirm("Are you sure you want to permanently delete this application? This action cannot be undone.")) {
         try {
             await api.deleteDocument(`users/${currentUser.uid}/jobs/${idToDelete}`);
@@ -430,8 +438,7 @@ function handleDuplicateApplication() {
         delete newJobData.id;
         newJobData.jobTitle = `${originalJob.jobTitle} (Copy)`;
         newJobData.status = 'Identified';
-        // Set a new active ID to signal we're in "new" mode but with pre-filled data
-        appState.ui.activeJobId = 'new-from-duplicate'; 
+        appState.ui.activeJobId = 'new-from-duplicate';
         ui.renderApplicationDetailPage(newJobData);
         ui.showToast("Application duplicated. Editing the new copy.");
     }
@@ -440,7 +447,6 @@ function handleDuplicateApplication() {
 async function handleSaveExperience() {
     const data = ui.getExperienceInspectorData();
     if(!data.title) { ui.showToast("Title is required.", "error"); return; }
-    
     const isNew = !appState.ui.activeExperienceId;
     const path = `users/${currentUser.uid}/experiences`;
     ui.showToast(isNew ? "Creating experience..." : "Updating experience...");
@@ -456,6 +462,21 @@ async function handleSaveExperience() {
         ui.closeExperienceInspector();
     } catch(err) {
         ui.showToast(`Could not save: ${err.message}`, "error");
+    }
+}
+
+async function handleDeleteExperience() {
+    const idToDelete = appState.ui.activeExperienceId;
+    if (!idToDelete) return;
+    if(confirm("Are you sure you want to delete this experience?")) {
+        ui.showToast("Deleting experience...");
+        try {
+            await api.deleteDocument(`users/${currentUser.uid}/experiences/${idToDelete}`);
+            ui.showToast("Experience deleted.", "success");
+            ui.closeExperienceInspector();
+        } catch(err) {
+            ui.showToast(`Could not delete: ${err.message}`, "error");
+        }
     }
 }
 
