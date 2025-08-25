@@ -570,4 +570,4 @@ function getUrgentJobs() {
 function checkReminders() {
     const urgentJobs = getUrgentJobs();
     ui.updateNotificationBadge(urgentJobs.length);
-}```
+}
