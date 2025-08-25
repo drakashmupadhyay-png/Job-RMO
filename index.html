@@ -66,7 +66,7 @@
                 <a href="#documents" class="nav-link" title="My Documents"><i class="fa-solid fa-folder-open"></i><span>My Documents</span></a>
             </nav>
             <div class="sidebar-footer">
-                <a href="#settings" class="nav-link" title="Settings"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
+                <!-- Clock will be dynamically inserted here by ui.js -->
             </div>
         </aside>
 
@@ -82,6 +82,7 @@
                         <div class="nav-user-menu" id="nav-user-menu">
                             <img id="nav-user-img" src="placeholder.jpg" alt="User Avatar" class="nav-user-avatar">
                             <div class="dropdown-menu hidden" id="user-dropdown">
+                                <!-- User info will be dynamically inserted here -->
                                 <a href="#settings" class="dropdown-item nav-link-item"><i class="fa-solid fa-gear"></i> Settings</a>
                                 <a href="#" class="dropdown-item" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
                             </div>
@@ -96,15 +97,9 @@
                 <main id="dashboard" class="page-content">
                     <div class="dashboard-layout">
                         <aside id="filter-panel" class="inspector-panel collapsed">
-                           <div class="inspector-header">
-                               <h3><i class="fa-solid fa-filter"></i> Refine List</h3>
-                               <button id="close-filter-panel-btn" class="icon-btn" aria-label="Close Filters">×</button>
-                           </div>
+                           <div class="inspector-header"><h3><i class="fa-solid fa-filter"></i> Refine List</h3><button id="close-filter-panel-btn" class="icon-btn" aria-label="Close Filters">×</button></div>
                            <div class="inspector-content">
-                               <div class="filter-group">
-                                   <label for="search-bar">Search</label>
-                                   <input type="search" id="search-bar" placeholder="Search all fields...">
-                               </div>
+                               <div class="filter-group"><label for="search-bar">Search</label><input type="search" id="search-bar" placeholder="Search all fields..."></div>
                                <div class="filter-group"><label for="state-filter">State</label><select id="state-filter"></select></div>
                                <div class="filter-group"><label for="type-filter">Type</label><select id="type-filter"></select></div>
                                <div class="filter-group"><label for="status-filter">Status</label><select id="status-filter"></select></div>
@@ -113,36 +108,9 @@
                            </div>
                         </aside>
                         <div id="dashboard-main-content">
-                            <div class="toolbar">
-                                <h2 class="page-title">Dashboard</h2>
-                                <div class="toolbar-actions">
-                                    <button id="toggle-filters-btn" class="secondary-btn"><i class="fa-solid fa-filter"></i> Filters <span id="filter-count-badge" class="badge hidden">0</span></button>
-                                    <button id="select-jobs-btn" class="secondary-btn"><i class="fa-solid fa-check-square"></i> Select</button>
-                                    <div class="view-switcher">
-                                        <button id="table-view-btn" class="view-btn active" title="Table View"><i class="fa-solid fa-table-list"></i></button>
-                                        <button id="calendar-view-btn" class="view-btn" title="Calendar View"><i class="fa-solid fa-calendar-days"></i></button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="table-view-container" class="view-container">
-                                <div class="table-container">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th class="select-col hidden"><input type="checkbox" id="select-all-checkbox" title="Select All Visible"></th>
-                                                <th class="expand-col" aria-label="Expand Row"></th>
-                                                <th>Job (Title & Hospital)</th>
-                                                <th>Status</th>
-                                                <th>Closing Date</th>
-                                                <th>Follow-Up</th>
-                                                <th class="actions-col" aria-label="Actions"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="jobs-table-body"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                             <div id="card-view-container" class="view-container"></div>
+                            <div class="toolbar"><h2 class="page-title">Dashboard</h2><div class="toolbar-actions"><button id="toggle-filters-btn" class="secondary-btn"><i class="fa-solid fa-filter"></i> Filters <span id="filter-count-badge" class="badge hidden">0</span></button><button id="select-jobs-btn" class="secondary-btn"><i class="fa-solid fa-check-square"></i> Select</button><div class="view-switcher"><button id="table-view-btn" class="view-btn active" title="Table View"><i class="fa-solid fa-table-list"></i></button><button id="calendar-view-btn" class="view-btn" title="Calendar View"><i class="fa-solid fa-calendar-days"></i></button></div></div></div>
+                            <div id="table-view-container" class="view-container"><div class="table-container"><table><thead><tr><th class="select-col hidden"><input type="checkbox" id="select-all-checkbox" title="Select All Visible"></th><th class="expand-col" aria-label="Expand Row"></th><th>Job (Title & Hospital)</th><th>Status</th><th>Closing Date</th><th>Follow-Up</th><th class="actions-col" aria-label="Actions"></th></tr></thead><tbody id="jobs-table-body"></tbody></table></div></div>
+                            <div id="card-view-container" class="view-container"></div>
                             <div id="calendar-view-container" class="view-container hidden"><div id="calendar"></div></div>
                         </div>
                     </div>
@@ -152,38 +120,14 @@
                 <main id="experienceBook" class="page-content hidden">
                     <div class="experience-book-layout">
                         <aside id="experience-sidebar">
-                            <div class="sidebar-block">
-                                <h3>Categories</h3>
-                                <ul id="experience-categories-list" class="category-list"></ul>
-                            </div>
+                            <div class="sidebar-block"><h3>Categories</h3><ul id="experience-categories-list" class="category-list"></ul></div>
                         </aside>
                         <div class="experience-main-content">
-                            <div class="toolbar">
-                                <h2 class="page-title">Experience Book</h2>
-                                <input type="search" id="experience-search-bar" placeholder="Search experiences...">
-                            </div>
+                            <div class="toolbar"><h2 class="page-title">Experience Book</h2><input type="search" id="experience-search-bar" placeholder="Search experiences..."></div>
                             <div id="experience-tag-filters" class="tag-filter-bar"></div>
                             <div id="experience-cards-container" class="experience-cards-container"></div>
                         </div>
-                        <aside id="experience-inspector" class="inspector-panel collapsed">
-                            <div class="inspector-header">
-                                <h3>Experience Details</h3>
-                                <button id="close-experience-inspector-btn" class="icon-btn" aria-label="Close">×</button>
-                            </div>
-                            <div class="inspector-content">
-                                <div class="form-group"><label for="exp-title">Title (Question)</label><input type="text" id="exp-title"></div>
-                                <div class="form-group"><label for="exp-paragraph">Response (Answer)</label><textarea id="exp-paragraph" rows="10"></textarea></div>
-                                <div class="form-group"><label for="exp-tags">Tags (comma-separated)</label><input type="text" id="exp-tags"></div>
-                                <div class="form-group">
-                                    <h4>Linked Applications</h4>
-                                    <ul id="exp-linked-apps-list" class="linked-items-list"></ul>
-                                </div>
-                            </div>
-                            <div class="inspector-footer">
-                                <button id="delete-exp-btn" class="danger-btn">Delete</button>
-                                <button id="save-exp-btn" class="primary-action-btn">Save</button>
-                            </div>
-                        </aside>
+                        <aside id="experience-inspector" class="inspector-panel collapsed"></aside>
                     </div>
                 </main>
 
@@ -193,44 +137,14 @@
                         <aside id="document-sidebar">
                             <h3>Folders</h3>
                             <ul id="document-folders-list" class="category-list"></ul>
+                            <button id="add-folder-btn" class="secondary-btn" style="width: 100%; margin-top: 15px;"><i class="fa-solid fa-folder-plus"></i> New Folder</button>
                         </aside>
                         <div class="document-main-content">
-                            <div class="toolbar">
-                                <h2 class="page-title">My Documents</h2>
-                                <div class="view-switcher">
-                                    <button id="doc-list-view-btn" class="view-btn active" title="List View"><i class="fa-solid fa-list"></i></button>
-                                    <button id="doc-grid-view-btn" class="view-btn" title="Grid View"><i class="fa-solid fa-grip"></i></button>
-                                </div>
-                            </div>
-                            <div id="upload-dropzone" class="upload-dropzone">
-                                <i class="fa-solid fa-cloud-arrow-up"></i>
-                                <p>Drag & drop files here, or click to browse</p>
-                            </div>
-                            <div id="document-list-container"></div>
+                            <div class="toolbar"><h2 class="page-title">My Documents</h2><div class="view-switcher"><button id="doc-list-view-btn" class="view-btn active" title="List View"><i class="fa-solid fa-list"></i></button><button id="doc-grid-view-btn" class="view-btn" title="Grid View"><i class="fa-solid fa-grip"></i></button></div></div>
+                            <div id="upload-dropzone" class="upload-dropzone"><i class="fa-solid fa-cloud-arrow-up"></i><p>Drag & drop files here, or click to browse</p></div>
+                            <div id="document-list-container" class="list-view"></div>
                         </div>
-                        <aside id="document-inspector" class="inspector-panel collapsed">
-                             <div class="inspector-header">
-                                <h3>Document Details</h3>
-                                <button id="close-document-inspector-btn" class="icon-btn" aria-label="Close">×</button>
-                            </div>
-                            <div class="inspector-content">
-                                <div id="doc-preview" class="doc-preview"><i class="fa-solid fa-file-alt"></i></div>
-                                <h4 id="doc-inspector-name">File_Name.pdf</h4>
-                                <div id="doc-inspector-details" class="doc-details-grid"></div>
-                                <div class="form-group">
-                                    <h4>Linked Applications</h4>
-                                    <ul id="doc-linked-apps-list" class="linked-items-list"></ul>
-                                </div>
-                                <div class="form-group">
-                                    <h4>Version History</h4>
-                                    <ul id="doc-version-history-list" class="linked-items-list"></ul>
-                                </div>
-                            </div>
-                            <div class="inspector-footer">
-                                <button id="delete-doc-btn" class="danger-btn">Delete</button>
-                                <button id="rename-doc-btn" class="secondary-btn">Rename</button>
-                            </div>
-                        </aside>
+                        <aside id="document-inspector" class="inspector-panel collapsed"></aside>
                     </div>
                 </main>
 
@@ -257,60 +171,8 @@
                 
                 <!-- APPLICATION DETAIL PAGE -->
                 <main id="applicationDetailPage" class="page-content hidden">
-                    <header class="detail-summary-header">
-                        <div>
-                            <h2 id="detail-summary-title"></h2>
-                            <p id="detail-summary-hospital"></p>
-                        </div>
-                        <div class="summary-status-container">
-                            <span id="detail-summary-status" class="tag"></span>
-                        </div>
-                    </header>
-                    <div class="detail-workspace">
-                        <aside class="detail-nav-pane">
-                            <nav class="in-page-nav">
-                                <a href="#overview" class="in-page-link active">Overview</a>
-                                <a href="#workbench" class="in-page-link">Workbench</a>
-                                <a href="#app-documents" class="in-page-link">Documents</a>
-                            </nav>
-                            <section id="key-info-section" class="key-info-section">
-                                <h3>Key Information</h3>
-                            </section>
-                        </aside>
-                        <div class="detail-content-pane">
-                            <div id="overview-panel" class="detail-panel">
-                                <!-- Tracker Content: Status, Dates, Notes -->
-                            </div>
-                            <div id="workbench-panel" class="detail-panel hidden">
-                                <div class="toolbar">
-                                    <h3>Selection Criteria Workbench</h3>
-                                    <button id="add-criterion-btn" class="primary-action-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button>
-                                </div>
-                                <div id="selection-criteria-workbench"></div>
-                            </div>
-                            <div id="documents-panel" class="detail-panel hidden">
-                                <h3>Attached Documents</h3>
-                                <div class="documents-container">
-                                    <div class="document-column">
-                                        <h4>Official Documents</h4>
-                                        <ul id="official-docs-list" class="file-list"></ul>
-                                    </div>
-                                    <div class="document-column">
-                                        <h4>My Submitted Documents</h4>
-                                        <ul id="my-docs-list" class="file-list"></ul>
-                                        <button id="attach-from-repo-btn" class="secondary-btn" style="width: 100%; margin-top: 10px;"><i class="fa-solid fa-paperclip"></i> Attach from Repository</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <footer class="detail-footer">
-                        <button id="delete-app-btn" class="danger-btn">Delete Application</button>
-                        <div>
-                            <button id="duplicate-app-btn" class="secondary-btn">Duplicate</button>
-                            <button id="save-app-btn" class="primary-action-btn">Save Changes</button>
-                        </div>
-                    </footer>
+                    <!-- This content is now dynamically generated by ui.js -->
+                    <!-- The renderApplicationDetailPage function will build the header, workspace, and footer inside here -->
                 </main>
 
             </div>
@@ -331,4 +193,4 @@
     <script type="module" src="auth.js"></script>
 
 </body>
-</html>```
+</html>
