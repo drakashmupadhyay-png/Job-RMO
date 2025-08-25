@@ -1,10 +1,10 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - ui.js (v2.3 - Final Blueprint Implementation)
+// RMO Job-Flow - ui.js (v2.4 - Final Implementation)
 // Description: The "dumb" renderer. Takes data from main.js and is
 // solely responsible for all DOM manipulation and rendering. This is the
-// complete, unabridged version.
+// complete, unabridged version with no placeholders.
 // ---
 
 import * as utils from './utils.js';
@@ -34,6 +34,21 @@ export function applyTheme(theme) {
 export function renderUserInfo(profile) {
     if (SELECTORS.userName) SELECTORS.userName.textContent = profile.fullName?.split(' ')[0] || 'User';
     if (SELECTORS.userImg) SELECTORS.userImg.src = profile.photoURL || 'placeholder.jpg';
+    
+    // Render user info into the dropdown menu
+    const dropdown = SELECTORS.userDropdown;
+    if (dropdown) {
+        let infoEl = dropdown.querySelector('.dropdown-profile-info');
+        if (!infoEl) {
+            infoEl = document.createElement('div');
+            infoEl.className = 'dropdown-profile-info';
+            dropdown.prepend(infoEl);
+        }
+        infoEl.innerHTML = `
+            <strong>${profile.fullName || 'User'}</strong>
+            <span>${profile.email || ''}</span>
+        `;
+    }
 }
 
 export function toggleUserDropdown() {
@@ -97,21 +112,23 @@ export function updateNotificationBadge(count) {
 }
 
 export function renderFooter() {
-    let footer = document.getElementById('app-footer');
-    if (footer) return; // Already rendered
-    footer = document.createElement('footer');
-    footer.id = 'app-footer';
-    footer.innerHTML = `<div id="current-time-display"></div>`;
-    document.body.appendChild(footer);
+    let clock = document.getElementById('sidebar-clock');
+    if (clock) return;
+    const footer = document.querySelector('.sidebar-footer');
+    if(footer) {
+        clock = document.createElement('div');
+        clock.id = 'sidebar-clock';
+        footer.prepend(clock);
+    }
 }
 
 export function updateClock(timezone) {
-    const timeDisplay = document.getElementById('current-time-display');
+    const timeDisplay = document.getElementById('sidebar-clock');
     if (!timeDisplay) return;
     try {
         const now = new Date();
         const options = {
-            weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+            weekday: 'short', month: 'short', day: 'numeric',
             hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
             timeZone: timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
@@ -248,28 +265,25 @@ export function renderExperienceBook(experiences, filters) {
     page.innerHTML = '';
     const layout = document.createElement('div');
     layout.className = 'experience-book-layout';
-    const sidebar = document.createElement('aside');
-    sidebar.id = 'experience-sidebar';
-    sidebar.innerHTML = `<div class="sidebar-block"><h3>Categories</h3><ul id="experience-categories-list" class="category-list"></ul></div>`;
-    const mainContent = document.createElement('div');
-    mainContent.className = 'experience-main-content';
-    mainContent.innerHTML = `<div class="toolbar"><h2 class="page-title">Experience Book</h2><input type="search" id="experience-search-bar" placeholder="Search experiences..." value="${filters.search || ''}"></div><div id="experience-tag-filters" class="tag-filter-bar"></div><div id="experience-cards-container" class="experience-cards-container"></div>`;
-    const inspector = document.createElement('aside');
-    inspector.id = 'experience-inspector';
-    inspector.className = 'inspector-panel collapsed';
-    const filteredExperiences = experiences;
+    layout.innerHTML = `
+        <aside id="experience-sidebar">
+            <div class="sidebar-block"><h3>Categories</h3><ul id="experience-categories-list" class="category-list"></ul></div>
+        </aside>
+        <div class="experience-main-content">
+            <div class="toolbar"><h2 class="page-title">Experience Book</h2><input type="search" id="experience-search-bar" placeholder="Search experiences..." value="${filters.search || ''}"></div>
+            <div id="experience-tag-filters" class="tag-filter-bar"></div>
+            <div id="experience-cards-container" class="experience-cards-container"></div>
+        </div>
+        <aside id="experience-inspector" class="inspector-panel collapsed"></aside>
+    `;
     const allTags = [...new Set(experiences.flatMap(exp => exp.tags || []))].sort();
-    mainContent.querySelector('#experience-tag-filters').innerHTML = renderTagFilters(allTags, filters.tags);
-    mainContent.querySelector('#experience-cards-container').innerHTML = renderExperienceCards(filteredExperiences);
-    layout.appendChild(sidebar);
-    layout.appendChild(mainContent);
-    layout.appendChild(inspector);
+    layout.querySelector('#experience-tag-filters').innerHTML = renderTagFilters(allTags, filters.tags);
+    layout.querySelector('#experience-cards-container').innerHTML = renderExperienceCards(experiences);
     page.appendChild(layout);
 }
 
 function renderTagFilters(allTags, activeTags = []) {
-    const allBtnClass = activeTags.length === 0 ? 'active' : '';
-    let html = `<button class="tag-filter-btn ${allBtnClass}" data-tag="all">All</button>`;
+    let html = `<button class="tag-filter-btn ${activeTags.length === 0 ? 'active' : ''}" data-tag="all">All</button>`;
     html += allTags.map(tag => `<button class="tag-filter-btn ${activeTags.includes(tag) ? 'active' : ''}" data-tag="${tag}">${tag}</button>`).join('');
     return html;
 }
@@ -289,11 +303,7 @@ export function renderExperienceInspector(exp) {
 }
 
 export function getExperienceInspectorData() {
-    return {
-        title: document.getElementById('exp-title').value,
-        paragraph: document.getElementById('exp-paragraph').value,
-        tags: document.getElementById('exp-tags').value.split(',').map(t => t.trim()).filter(Boolean)
-    };
+    return { title: document.getElementById('exp-title').value, paragraph: document.getElementById('exp-paragraph').value, tags: document.getElementById('exp-tags').value.split(',').map(t => t.trim()).filter(Boolean) };
 }
 
 export function closeExperienceInspector() {
@@ -312,9 +322,20 @@ function renderDocumentItems(documents, viewMode) {
     return `<div class="table-container"><table><thead><tr><th>Name</th><th>Date Uploaded</th><th>Size</th><th class="actions-col"></th></tr></thead><tbody>${documents.map(doc => `<tr class="interactive-row" data-doc-id="${doc.id}"><td><i class="${utils.getFileIcon(doc.type)}"></i> ${doc.name}</td><td>${utils.formatDate(doc.uploadedAt)}</td><td>${utils.formatFileSize(doc.size)}</td><td class="actions-col"><a href="${doc.url}" target="_blank" class="icon-btn" title="Download"><i class="fa-solid fa-download"></i></a></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-export function renderDocumentInspector(doc) { /* Similar to Experience Inspector */ }
-export function closeDocumentInspector() { /* Similar to Experience Inspector */ }
+export function renderDocumentInspector(doc) {
+    const inspector = document.getElementById('document-inspector');
+    if (!inspector) return;
+    if (!doc) { inspector.classList.add('collapsed'); return; }
+    const size = utils.formatFileSize(doc.size);
+    const date = utils.formatDate(doc.uploadedAt, { month: 'long', day: 'numeric', year: 'numeric' });
+    const icon = utils.getFileIcon(doc.type);
+    inspector.innerHTML = `<div class="inspector-header"><h3>Document Details</h3><button id="close-document-inspector-btn" class="icon-btn" aria-label="Close">×</button></div><div class="inspector-content"><div id="doc-preview" class="doc-preview"><i class="${icon}"></i></div><h4 id="doc-inspector-name">${doc.name}</h4><div id="doc-inspector-details" class="doc-details-grid"><span><strong>Date Uploaded:</strong> ${date}</span><span><strong>File Size:</strong> ${size}</span></div><div class="form-group"><h4>Linked Applications</h4><ul id="doc-linked-apps-list" class="linked-items-list">${(doc.linkedApplications || []).map(app => `<li>${app.jobTitle}</li>`).join('') || '<li>Not linked yet.</li>'}</ul></div><div class="form-group"><h4>Version History</h4><ul id="doc-version-history-list" class="linked-items-list"><li>Version 1 (Current) - ${date}</li></ul></div></div><div class="inspector-footer"><button id="delete-doc-btn" class="danger-btn">Delete</button><button id="rename-doc-btn" class="secondary-btn">Rename</button></div>`;
+    inspector.classList.remove('collapsed');
+}
 
+export function closeDocumentInspector() {
+    document.getElementById('document-inspector')?.classList.add('collapsed');
+}
 
 // --- SETTINGS PAGE ---
 
