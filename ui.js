@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - ui.js (v2.9 - Filtering Logic)
+// RMO Job-Flow - ui.js (v2.10 - Actions Menu & Header Title)
 // Description: The "dumb" renderer. Takes data from main.js and is
 // solely responsible for all DOM manipulation and rendering.
 // ---
@@ -27,97 +27,6 @@ export function init() {
         remindersDropdown: document.getElementById('reminders-dropdown'),
     };
     console.log("UI Selectors Initialized.");
-}
-
-// --- FILTERING LOGIC ---
-
-/**
- * Filters and sorts the jobs for the dashboard view.
- * @param {Array} jobs The array of all job objects.
- * @param {object} filters The filter object from appState.
- * @returns {Array} The filtered and sorted array of jobs.
- */
-function applyDashboardFilters(jobs, filters) {
-    const searchTerm = filters.search.toLowerCase();
-    let filteredJobs = [...jobs];
-
-    // 1. Filter by search term (checks multiple fields)
-    if (searchTerm) {
-        filteredJobs = filteredJobs.filter(job => 
-            (job.jobTitle && job.jobTitle.toLowerCase().includes(searchTerm)) ||
-            (job.hospital && job.hospital.toLowerCase().includes(searchTerm)) ||
-            (job.location && job.location.toLowerCase().includes(searchTerm)) ||
-            (job.specialty && job.specialty.toLowerCase().includes(searchTerm))
-        );
-    }
-
-    // 2. Filter by state
-    if (filters.state !== 'all') {
-        filteredJobs = filteredJobs.filter(job => job.state === filters.state);
-    }
-
-    // 3. Filter by type
-    if (filters.type !== 'all') {
-        filteredJobs = filteredJobs.filter(job => job.applicationType === filters.type);
-    }
-
-    // 4. Filter by status
-    if (filters.status !== 'all') {
-        filteredJobs = filteredJobs.filter(job => job.status === filters.status);
-    }
-
-    // 5. Apply sorting
-    switch (filters.sortBy) {
-        case 'closing-asc':
-            filteredJobs.sort((a, b) => {
-                const dateA = a.closingDate ? a.closingDate.getTime() : Infinity;
-                const dateB = b.closingDate ? b.closingDate.getTime() : Infinity;
-                return dateA - dateB;
-            });
-            break;
-        case 'follow-up-asc':
-            filteredJobs.sort((a, b) => {
-                const dateA = a.followUpDate ? a.followUpDate.getTime() : Infinity;
-                const dateB = b.followUpDate ? b.followUpDate.getTime() : Infinity;
-                return dateA - dateB;
-            });
-            break;
-        case 'default':
-        default:
-            // The default is createdAt descending, which is handled by the API query.
-            // No extra sorting needed unless the original order was lost.
-            break;
-    }
-
-    return filteredJobs;
-}
-
-/**
- * Filters experiences by search term and tags.
- * @param {Array} experiences The array of all experience objects.
- * @param {object} filters The filter object from appState.
- * @returns {Array} The filtered array of experiences.
- */
-function applyExperienceBookFilters(experiences, filters) {
-    const searchTerm = filters.search.toLowerCase();
-    let filteredExperiences = [...experiences];
-
-    // 1. Filter by search term
-    if (searchTerm) {
-        filteredExperiences = filteredExperiences.filter(exp => 
-            (exp.title && exp.title.toLowerCase().includes(searchTerm)) ||
-            (exp.paragraph && exp.paragraph.toLowerCase().includes(searchTerm))
-        );
-    }
-
-    // 2. Filter by tags
-    if (filters.tags.length > 0) {
-        filteredExperiences = filteredExperiences.filter(exp => 
-            exp.tags && exp.tags.some(tag => filters.tags.includes(tag))
-        );
-    }
-
-    return filteredExperiences;
 }
 
 
@@ -315,6 +224,29 @@ export function updateClock(timezone) {
 
 // --- DASHBOARD RENDERING ---
 
+export function showActionsMenu(button, job) {
+    const menu = document.getElementById('actions-menu');
+    if (!menu) return;
+
+    menu.innerHTML = `
+        <button class="context-menu-item" data-action="edit"><i class="fa-solid fa-pencil"></i> Edit</button>
+        <button class="context-menu-item" data-action="duplicate"><i class="fa-solid fa-clone"></i> Duplicate</button>
+        <hr style="margin: 4px 0;">
+        <button class="context-menu-item danger" data-action="delete"><i class="fa-solid fa-trash-alt"></i> Delete</button>
+    `;
+
+    const rect = button.getBoundingClientRect();
+    menu.style.top = `${rect.bottom + window.scrollY}px`;
+    menu.style.left = `${rect.right + window.scrollX - menu.offsetWidth}px`;
+    menu.classList.remove('hidden');
+}
+
+export function closeActionsMenu() {
+    const menu = document.getElementById('actions-menu');
+    if (menu) menu.classList.add('hidden');
+}
+
+
 export function renderDashboard(jobs, filters, viewMode = 'table') {
     const tableView = document.getElementById('table-view-container');
     const calendarView = document.getElementById('calendar-view-container');
@@ -325,7 +257,7 @@ export function renderDashboard(jobs, filters, viewMode = 'table') {
     if (viewMode === 'calendar') {
         tableView.classList.add('hidden');
         calendarView.classList.remove('hidden');
-        renderCalendarView(jobs); // Calendar view doesn't use table filters
+        renderCalendarView(jobs);
     } else {
         calendarView.classList.add('hidden');
         tableView.classList.remove('hidden');
@@ -337,7 +269,6 @@ function renderTableView(jobs, filters) {
     const jobsTableBody = document.getElementById('jobs-table-body');
     if (!jobsTableBody) return;
 
-    // APPLY THE FILTERS
     const filteredJobs = applyDashboardFilters(jobs, filters); 
 
     if (filteredJobs.length === 0) {
@@ -559,7 +490,6 @@ export function renderExperienceBook(experiences, filters) {
     const tagsContainer = document.getElementById('experience-tag-filters');
     if (!container || !tagsContainer) return;
     
-    // APPLY THE FILTERS
     const filteredExperiences = applyExperienceBookFilters(experiences, filters);
 
     const allTags = [...new Set(experiences.flatMap(exp => exp.tags || []))].sort();
@@ -665,4 +595,74 @@ export function showToast(message, type = 'success', duration = 3000) {
         toast.classList.remove('show');
         toast.addEventListener('transitionend', () => toast.remove());
     }, duration);
+}
+
+// --- FILTERING LOGIC ---
+
+function applyDashboardFilters(jobs, filters) {
+    const searchTerm = filters.search.toLowerCase();
+    let filteredJobs = [...jobs];
+
+    if (searchTerm) {
+        filteredJobs = filteredJobs.filter(job => 
+            (job.jobTitle && job.jobTitle.toLowerCase().includes(searchTerm)) ||
+            (job.hospital && job.hospital.toLowerCase().includes(searchTerm)) ||
+            (job.location && job.location.toLowerCase().includes(searchTerm)) ||
+            (job.specialty && job.specialty.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    if (filters.state !== 'all') {
+        filteredJobs = filteredJobs.filter(job => job.state === filters.state);
+    }
+
+    if (filters.type !== 'all') {
+        filteredJobs = filteredJobs.filter(job => job.applicationType === filters.type);
+    }
+
+    if (filters.status !== 'all') {
+        filteredJobs = filteredJobs.filter(job => job.status === filters.status);
+    }
+
+    switch (filters.sortBy) {
+        case 'closing-asc':
+            filteredJobs.sort((a, b) => {
+                const dateA = a.closingDate ? a.closingDate.getTime() : Infinity;
+                const dateB = b.closingDate ? b.closingDate.getTime() : Infinity;
+                return dateA - dateB;
+            });
+            break;
+        case 'follow-up-asc':
+            filteredJobs.sort((a, b) => {
+                const dateA = a.followUpDate ? a.followUpDate.getTime() : Infinity;
+                const dateB = b.followUpDate ? b.followUpDate.getTime() : Infinity;
+                return dateA - dateB;
+            });
+            break;
+        case 'default':
+        default:
+            break;
+    }
+
+    return filteredJobs;
+}
+
+function applyExperienceBookFilters(experiences, filters) {
+    const searchTerm = filters.search.toLowerCase();
+    let filteredExperiences = [...experiences];
+
+    if (searchTerm) {
+        filteredExperiences = filteredExperiences.filter(exp => 
+            (exp.title && exp.title.toLowerCase().includes(searchTerm)) ||
+            (exp.paragraph && exp.paragraph.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    if (filters.tags.length > 0) {
+        filteredExperiences = filteredExperiences.filter(exp => 
+            exp.tags && exp.tags.some(tag => filters.tags.includes(tag))
+        );
+    }
+
+    return filteredExperiences;
 }
