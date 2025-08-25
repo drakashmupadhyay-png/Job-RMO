@@ -1,26 +1,35 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - ui.js (v2.5 - Bug Fixes & UI Polish)
+// RMO Job-Flow - ui.js (v2.6 - Initialization Fix)
 // Description: The "dumb" renderer. Takes data from main.js and is
-// solely responsible for all DOM manipulation and rendering. This is the
-// complete, unabridged version with no placeholders.
+// solely responsible for all DOM manipulation and rendering.
 // ---
 
 import * as utils from './utils.js';
 
 // --- SELECTORS (Cached for performance) ---
-const SELECTORS = {
-    appSidebar: document.getElementById('app-sidebar'),
-    pageContainer: document.getElementById('page-content-container'),
-    fab: document.getElementById('fab'),
-    userName: document.getElementById('nav-user-name'),
-    userImg: document.getElementById('nav-user-img'),
-    userDropdown: document.getElementById('user-dropdown'),
-    remindersDropdown: document.getElementById('reminders-dropdown'),
-};
+// DECLARED HERE, BUT INITIALIZED LATER TO AVOID RACE CONDITION
+let SELECTORS = {}; 
 
 let calendarInstance = null; // To hold the FullCalendar instance
+
+/**
+ * Caches all necessary DOM element selectors.
+ * MUST be called after DOMContentLoaded.
+ */
+export function init() {
+    SELECTORS = {
+        appSidebar: document.getElementById('app-sidebar'),
+        pageContainer: document.getElementById('page-content-container'),
+        fab: document.getElementById('fab'),
+        userName: document.getElementById('nav-user-name'),
+        userImg: document.getElementById('nav-user-img'),
+        userDropdown: document.getElementById('user-dropdown'),
+        remindersDropdown: document.getElementById('reminders-dropdown'),
+    };
+    console.log("UI Selectors Initialized.");
+}
 
 // --- GLOBAL UI MANIPULATION ---
 
@@ -56,15 +65,15 @@ export function renderUserInfo(profile) {
 }
 
 export function toggleUserDropdown() {
-    SELECTORS.userDropdown.classList.toggle('hidden');
+    if (SELECTORS.userDropdown) SELECTORS.userDropdown.classList.toggle('hidden');
 }
 
 export function closeUserDropdown() {
-    SELECTORS.userDropdown.classList.add('hidden');
+    if (SELECTORS.userDropdown) SELECTORS.userDropdown.classList.add('hidden');
 }
 
 export function toggleRemindersDropdown(shouldOpen) {
-    SELECTORS.remindersDropdown.classList.toggle('hidden', !shouldOpen);
+    if (SELECTORS.remindersDropdown) SELECTORS.remindersDropdown.classList.toggle('hidden', !shouldOpen);
 }
 
 export function renderRemindersDropdown(urgentJobs) {
@@ -96,7 +105,7 @@ export function renderRemindersDropdown(urgentJobs) {
 }
 
 export function toggleSidebar(isCollapsed) {
-    SELECTORS.appSidebar.classList.toggle('collapsed', isCollapsed);
+    if (SELECTORS.appSidebar) SELECTORS.appSidebar.classList.toggle('collapsed', isCollapsed);
 }
 
 export function toggleMobileSidebar(shouldOpen) {
@@ -121,15 +130,21 @@ export function toggleMobileSidebar(shouldOpen) {
 }
 
 export function setActivePage(pageId) {
-    SELECTORS.pageContainer.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+    if (SELECTORS.pageContainer) {
+        SELECTORS.pageContainer.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+    }
     const activePage = document.getElementById(pageId);
     if (activePage) activePage.classList.remove('hidden');
-    SELECTORS.appSidebar.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.toggle('active', link.getAttribute('href') === `#${pageId.split('/')[0]}`);
-    });
+    
+    if (SELECTORS.appSidebar) {
+        SELECTORS.appSidebar.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${pageId.split('/')[0]}`);
+        });
+    }
 }
 
 export function updateFAB(pageId) {
+    if (!SELECTORS.fab) return;
     const fabIcon = SELECTORS.fab.querySelector('i');
     switch (pageId) {
         case 'dashboard': SELECTORS.fab.title = "Add New Application"; fabIcon.className = "fa-solid fa-plus"; SELECTORS.fab.classList.remove('hidden'); break;
