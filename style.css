@@ -1,5 +1,5 @@
 /* ---
-   RMO Job-Flow - style.css (v2.4 - Final Implementation)
+   RMO Job-Flow - style.css (v2.5 - Bug Fixes & UI Polish)
    Description: The definitive, complete stylesheet for the final application.
    Incorporates all layouts, components, themes, responsive behaviors, and bug fixes.
 --- */
@@ -67,6 +67,8 @@ html[data-theme="dark"] {
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--background-primary); color: var(--text-primary); font-size: 16px; line-height: 1.6; overflow: hidden; }
 .hidden { display: none !important; }
 hr { border: none; height: 1px; background-color: var(--border-primary); margin: 20px 0; }
+.empty-state-container { padding: 60px 20px; text-align: center; color: var(--text-secondary); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
+.empty-state-container i { font-size: 2.5rem; color: var(--border-primary); }
 
 /* ==========================================================================
    3. AUTHENTICATION VIEW
@@ -111,24 +113,38 @@ hr { border: none; height: 1px; background-color: var(--border-primary); margin:
    ========================================================================== */
 #main-workspace { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; position: relative; }
 #global-header { height: var(--header-height); background-color: var(--surface-primary); border-bottom: 1px solid var(--border-primary); display: flex; align-items: center; justify-content: space-between; padding: 0 25px; flex-shrink: 0; z-index: 99; }
+.header-left-wrapper { display: flex; align-items: center; gap: 15px; }
+.header-title-area { display: flex; }
+.header-title-area .nav-logo { color: var(--primary-blue); }
+.header-title-area .nav-logo h1 { color: var(--text-primary); }
 #mobile-menu-btn { display: none; }
 .header-user-area { display: flex; align-items: center; gap: 15px; }
+.reminders-container { position: relative; }
 .nav-user { display: flex; align-items: center; gap: 15px; }
 .nav-user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-primary); }
 .nav-user-menu { position: relative; cursor: pointer; }
 .dropdown-menu { position: absolute; top: 120%; right: 0; background-color: var(--surface-primary); border-radius: 8px; box-shadow: var(--shadow-medium); padding: 8px; min-width: 240px; z-index: 100; border: 1px solid var(--border-primary); }
-.dropdown-profile-info { padding: 10px; border-bottom: 1px solid var(--border-primary); margin-bottom: 8px; }
-.dropdown-profile-info strong { display: block; color: var(--text-primary); }
-.dropdown-profile-info span { font-size: 0.9rem; color: var(--text-secondary); }
+.dropdown-profile-header { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 15px; border-bottom: 1px solid var(--border-primary); margin: -8px -8px 8px -8px; }
+.dropdown-profile-header img { width: 60px; height: 60px; border-radius: 50%; }
+.dropdown-profile-header strong { font-size: 1rem; }
+.dropdown-profile-header span { font-size: 0.85rem; color: var(--text-secondary); }
 .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 4px; color: var(--text-primary); text-decoration: none; }
 .dropdown-item:hover { background-color: var(--background-secondary); }
+#reminders-dropdown { padding: 0; min-width: 300px; max-height: 400px; overflow-y: auto; }
+.reminders-header { padding: 12px 15px; font-weight: 600; border-bottom: 1px solid var(--border-primary); }
+.reminder-item { padding: 12px 15px; border-bottom: 1px solid var(--border-secondary); font-size: 0.9rem; }
+.reminder-item:last-child { border-bottom: none; }
+.reminder-item a { text-decoration: none; color: var(--text-primary); }
+.reminder-item strong { display: block; }
+.reminder-item span { color: var(--text-secondary); }
+.reminders-empty { padding: 20px; text-align: center; color: var(--text-secondary); }
 #page-content-container { padding: 30px; flex-grow: 1; overflow-y: auto; }
 
 /* ==========================================================================
    6. DASHBOARD & ITS COMPONENTS
    ========================================================================== */
 .dashboard-layout { display: flex; gap: 20px; }
-#dashboard-main-content { flex-grow: 1; min-width: 0; transition: width 0.3s var(--ease-out-cubic); }
+#dashboard-main-content { flex-grow: 1; min-width: 0; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
 .page-title { font-size: 1.8rem; font-weight: 600; }
 .toolbar-actions { display: flex; align-items: center; gap: 10px; }
@@ -148,15 +164,65 @@ th { color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;
 .secondary-data-row.visible { display: table-row; }
 .secondary-data-cell { padding: 20px 30px !important; background-color: var(--background-secondary); }
 .secondary-data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-.empty-state-cell { padding: 60px 20px !important; text-align: center; color: var(--text-secondary); }
-#filter-panel { width: var(--inspector-width); background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; flex-shrink: 0; transition: margin-left 0.3s var(--ease-out-cubic), opacity 0.3s; margin-left: 0; }
-#filter-panel.collapsed { width: 0; border: none; overflow: hidden; margin-left: calc(var(--inspector-width) * -1 - 20px); opacity: 0; }
-.inspector-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-primary); }
+.empty-state-cell { padding: 60px 20px !important; }
+#filter-panel { width: var(--inspector-width); background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; flex-shrink: 0; transition: width 0.3s var(--ease-out-cubic), padding 0.3s, border-width 0.3s; }
+#filter-panel.collapsed { width: 0; border-width: 0; overflow: hidden; padding-left: 0; padding-right: 0; }
+.inspector-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-primary); white-space: nowrap; }
 .inspector-header h3 { font-size: 1.1rem; }
 .inspector-content { padding: 15px; display: flex; flex-direction: column; gap: 15px; }
 
+/* Calendar View */
+#calendar { --fc-border-color: var(--border-primary); --fc-today-bg-color: var(--background-secondary); --fc-button-bg-color: var(--primary-blue); --fc-button-border-color: var(--primary-blue); --fc-button-hover-bg-color: var(--primary-blue-dark); --fc-button-hover-border-color: var(--primary-blue-dark); --fc-button-active-bg-color: var(--primary-blue-dark); --fc-button-active-border-color: var(--primary-blue-dark); --fc-event-bg-color: var(--primary-blue); --fc-event-border-color: var(--primary-blue); --fc-event-text-color: #fff; }
+.fc-toolbar-title { color: var(--text-primary); font-size: 1.4rem !important; }
+.fc .fc-button { font-size: 0.9rem !important; }
+.fc .fc-daygrid-day-number { color: var(--text-secondary); }
+
 /* ==========================================================================
-   7. SETTINGS PAGE
+   7. APPLICATION DETAIL PAGE
+   ========================================================================== */
+.detail-summary-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 20px; background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; margin-bottom: 20px; }
+.detail-summary-header h2 { font-size: 1.8rem; font-weight: 600; outline: none; }
+.detail-summary-header p { font-size: 1.1rem; color: var(--text-secondary); outline: none; }
+.summary-status-container .tag { font-size: 1rem; padding: 8px 15px; }
+.detail-workspace { display: flex; gap: 20px; }
+.detail-nav-pane { width: 250px; flex-shrink: 0; }
+.detail-content-pane { flex-grow: 1; }
+.detail-footer { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-top: 1px solid var(--border-primary); margin-top: 20px; }
+.detail-section { margin-bottom: 30px; }
+.detail-section > h3 { font-size: 1.5rem; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-primary); }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.form-group.full-span { grid-column: 1 / -1; }
+
+/* ==========================================================================
+   8. EXPERIENCE BOOK & DOCUMENTS
+   ========================================================================== */
+.experience-book-layout, .documents-layout { display: flex; gap: 20px; }
+.experience-main-content, .document-main-content { flex-grow: 1; min-width: 0; }
+#experience-sidebar, #document-sidebar { width: 250px; flex-shrink: 0; background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 15px; }
+.category-list { list-style: none; }
+.category-list li a { display: block; padding: 8px 12px; border-radius: 4px; text-decoration: none; color: var(--text-secondary); font-weight: 500; }
+.category-list li.active a, .category-list li a:hover { background-color: var(--background-secondary); color: var(--text-primary); }
+.tag-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.tag-filter-btn { padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border-primary); background-color: transparent; }
+.tag-filter-btn.active { background-color: var(--primary-blue); color: white; border-color: var(--primary-blue); }
+.experience-cards-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.experience-card { background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 20px; position: relative; transition: all 0.2s var(--ease-out-cubic); }
+.experience-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-medium); }
+.experience-card h4 { font-size: 1.1rem; margin-bottom: 10px; }
+.experience-card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; }
+.experience-card-paragraph { color: var(--text-secondary); font-size: 0.95rem; }
+#experience-inspector { width: 400px; flex-shrink: 0; transition: margin-left 0.3s var(--ease-out-cubic), opacity 0.3s; }
+/* Documents */
+.upload-dropzone { padding: 40px; border: 2px dashed var(--border-primary); border-radius: 8px; text-align: center; color: var(--text-secondary); background-color: var(--surface-secondary); margin-bottom: 20px; }
+.upload-dropzone i { font-size: 2.5rem; margin-bottom: 10px; }
+.grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }
+.doc-grid-item { background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s var(--ease-out-cubic); }
+.doc-grid-item:hover { transform: translateY(-5px); box-shadow: var(--shadow-soft); }
+.doc-grid-icon { font-size: 3rem; margin-bottom: 15px; color: var(--primary-blue); }
+.doc-grid-name { font-weight: 500; font-size: 0.9rem; word-break: break-all; }
+
+/* ==========================================================================
+   9. SETTINGS PAGE
    ========================================================================== */
 .settings-layout { display: flex; gap: 40px; }
 .settings-sidebar { width: 200px; flex-shrink: 0; }
@@ -177,7 +243,7 @@ th { color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;
 .segment-btn.active { background-color: var(--surface-primary); color: var(--primary-blue); box-shadow: var(--shadow-soft); }
 
 /* ==========================================================================
-   8. GENERIC COMPONENTS
+   10. GENERIC COMPONENTS
    ========================================================================== */
 button { font-family: inherit; font-size: 1rem; border-radius: 6px; border: 1px solid var(--border-primary); cursor: pointer; transition: all 0.2s; font-weight: 500; }
 .primary-action-btn { background-color: var(--primary-blue); color: white; border-color: var(--primary-blue); padding: 10px 20px; }
@@ -209,7 +275,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .toast.error { background-color: var(--danger-red); }
 
 /* ==========================================================================
-   9. RESPONSIVE DESIGN
+   11. RESPONSIVE DESIGN
    ========================================================================== */
 @media (max-width: 1200px) {
     #app-sidebar { position: fixed; left: 0; top: 0; height: 100%; transform: translateX(-100%); z-index: 1001; transition: transform 0.3s var(--ease-out-cubic); box-shadow: var(--shadow-strong); }
@@ -217,14 +283,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     #app-sidebar.collapsed { width: var(--sidebar-width-expanded); }
     #main-workspace { margin-left: 0; }
     #mobile-menu-btn { display: flex; align-items: center; justify-content: center; }
+    .header-title-area { display: none; }
     #mobile-sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease-out-cubic); }
     #mobile-sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
 }
 
 @media (max-width: 992px) {
     .dashboard-layout { flex-direction: column; }
-    #filter-panel { width: 100% !important; margin-left: 0 !important; transform: none !important; position: static; max-height: 0; padding: 0; overflow: hidden; border: none; transition: max-height 0.3s var(--ease-out-cubic), padding 0.3s; opacity: 1; }
-    #filter-panel:not(.collapsed) { max-height: 500px; border: 1px solid var(--border-primary); border-radius: 8px; margin-bottom: 20px; }
+    #filter-panel { width: 100% !important; transform: none !important; position: static; max-height: 0; padding: 0 !important; overflow: hidden; border: none !important; transition: max-height 0.3s var(--ease-out-cubic); opacity: 1; }
+    #filter-panel:not(.collapsed) { max-height: 500px; border: 1px solid var(--border-primary) !important; border-radius: 8px; margin-bottom: 20px; }
     .settings-layout, .detail-workspace { flex-direction: column; }
     .settings-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-bottom: 1px solid var(--border-primary); margin-bottom: 20px; }
     .settings-link { border-bottom: 3px solid transparent; border-radius: 0; flex-shrink: 0; }
