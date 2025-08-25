@@ -1,7 +1,7 @@
 /* ---
-   RMO Job-Flow - style.css (v2.2 - Final Blueprint Polish)
-   Description: Corrects all identified layout, spacing, and responsive bugs.
-   Implements the final professional styling for all application components.
+   RMO Job-Flow - style.css (v2.4 - Final Implementation)
+   Description: The definitive, complete stylesheet for the final application.
+   Incorporates all layouts, components, themes, responsive behaviors, and bug fixes.
 --- */
 
 /* ==========================================================================
@@ -64,7 +64,7 @@ html[data-theme="dark"] {
    2. GENERAL STYLES & UTILITIES
    ========================================================================== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--background-primary); color: var(--text-primary); font-size: 16px; line-height: 1.6; overflow: hidden; /* Prevent body scroll */ }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--background-primary); color: var(--text-primary); font-size: 16px; line-height: 1.6; overflow: hidden; }
 .hidden { display: none !important; }
 hr { border: none; height: 1px; background-color: var(--border-primary); margin: 20px 0; }
 
@@ -94,7 +94,6 @@ hr { border: none; height: 1px; background-color: var(--border-primary); margin:
 .nav-logo i { font-size: 1.5rem; }
 .nav-logo h1 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; opacity: 1; transition: opacity 0.2s ease; }
 #app-sidebar.collapsed .nav-logo h1 { opacity: 0; pointer-events: none; }
-/* FIX: Keep icon centered when text disappears */
 #app-sidebar.collapsed .nav-logo { justify-content: center; width: 100%; }
 .sidebar-nav { flex-grow: 1; display: flex; flex-direction: column; gap: 8px; }
 .nav-link { display: flex; align-items: center; gap: 15px; padding: 12px 10px; border-radius: 6px; text-decoration: none; color: var(--text-secondary); font-weight: 500; white-space: nowrap; transition: background-color 0.2s, color 0.2s; }
@@ -104,6 +103,8 @@ hr { border: none; height: 1px; background-color: var(--border-primary); margin:
 #app-sidebar.collapsed .nav-link span { opacity: 0; pointer-events: none; transition: opacity 0.2s; }
 #app-sidebar.collapsed .nav-link i { margin: 0 auto; }
 .sidebar-footer { padding-top: 15px; border-top: 1px solid var(--border-secondary); }
+#sidebar-clock { font-size: 0.8rem; color: var(--text-secondary); text-align: center; padding: 10px 0; white-space: nowrap; overflow: hidden; }
+#app-sidebar.collapsed #sidebar-clock { display: none; }
 
 /* ==========================================================================
    5. MAIN WORKSPACE & GLOBAL HEADER
@@ -115,7 +116,10 @@ hr { border: none; height: 1px; background-color: var(--border-primary); margin:
 .nav-user { display: flex; align-items: center; gap: 15px; }
 .nav-user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-primary); }
 .nav-user-menu { position: relative; cursor: pointer; }
-.dropdown-menu { position: absolute; top: 120%; right: 0; background-color: var(--surface-primary); border-radius: 8px; box-shadow: var(--shadow-medium); padding: 8px; min-width: 200px; z-index: 100; border: 1px solid var(--border-primary); }
+.dropdown-menu { position: absolute; top: 120%; right: 0; background-color: var(--surface-primary); border-radius: 8px; box-shadow: var(--shadow-medium); padding: 8px; min-width: 240px; z-index: 100; border: 1px solid var(--border-primary); }
+.dropdown-profile-info { padding: 10px; border-bottom: 1px solid var(--border-primary); margin-bottom: 8px; }
+.dropdown-profile-info strong { display: block; color: var(--text-primary); }
+.dropdown-profile-info span { font-size: 0.9rem; color: var(--text-secondary); }
 .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 4px; color: var(--text-primary); text-decoration: none; }
 .dropdown-item:hover { background-color: var(--background-secondary); }
 #page-content-container { padding: 30px; flex-grow: 1; overflow-y: auto; }
@@ -124,7 +128,7 @@ hr { border: none; height: 1px; background-color: var(--border-primary); margin:
    6. DASHBOARD & ITS COMPONENTS
    ========================================================================== */
 .dashboard-layout { display: flex; gap: 20px; }
-#dashboard-main-content { flex-grow: 1; min-width: 0; /* Important for flexbox shrinking */ }
+#dashboard-main-content { flex-grow: 1; min-width: 0; transition: width 0.3s var(--ease-out-cubic); }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
 .page-title { font-size: 1.8rem; font-weight: 600; }
 .toolbar-actions { display: flex; align-items: center; gap: 10px; }
@@ -145,9 +149,8 @@ th { color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase;
 .secondary-data-cell { padding: 20px 30px !important; background-color: var(--background-secondary); }
 .secondary-data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
 .empty-state-cell { padding: 60px 20px !important; text-align: center; color: var(--text-secondary); }
-/* FIX: Correct styles for slide-in filter panel */
-#filter-panel { width: var(--inspector-width); background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; flex-shrink: 0; margin-left: -20px; transform: translateX(calc(-100%)); z-index: 10; transition: transform 0.3s var(--ease-out-cubic); }
-#filter-panel:not(.collapsed) { transform: translateX(0); }
+#filter-panel { width: var(--inspector-width); background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 8px; flex-shrink: 0; transition: margin-left 0.3s var(--ease-out-cubic), opacity 0.3s; margin-left: -20px; }
+#filter-panel.collapsed { width: 0; border: none; overflow: hidden; margin-left: calc(var(--inspector-width) * -1 - 40px); opacity: 0; }
 .inspector-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-primary); }
 .inspector-header h3 { font-size: 1.1rem; }
 .inspector-content { padding: 15px; display: flex; flex-direction: column; gap: 15px; }
@@ -185,7 +188,7 @@ button { font-family: inherit; font-size: 1rem; border-radius: 6px; border: 1px 
 .danger-btn:hover { background-color: var(--danger-red-dark); }
 .icon-btn { background: none; border: none; color: var(--text-secondary); width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
 .icon-btn:hover { background-color: var(--background-secondary); color: var(--text-primary); }
-.badge { background-color: var(--primary-blue); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 5px; }
+.badge { background-color: var(--danger-red); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 5px; }
 .form-group { margin-bottom: 20px; }
 label { display: block; margin-bottom: 8px; font-weight: 500; }
 input, select, textarea { width: 100%; padding: 12px; background-color: var(--surface-primary); border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-primary); }
@@ -214,18 +217,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     #app-sidebar.collapsed { width: var(--sidebar-width-expanded); }
     #main-workspace { margin-left: 0; }
     #mobile-menu-btn { display: flex; align-items: center; justify-content: center; }
-    /* FIX: Show welcome text on tablet, hide on smaller phones */
-    .nav-welcome-text { display: inline; }
     #mobile-sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease-out-cubic); }
     #mobile-sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
 }
 
 @media (max-width: 992px) {
     .dashboard-layout { flex-direction: column; }
-    #filter-panel { width: 100%; margin-left: 0; transform: none; position: static; max-height: 0; padding: 0 15px; overflow: hidden; border: none; transition: max-height 0.3s var(--ease-out-cubic), padding 0.3s; opacity: 1; }
+    #filter-panel { width: 100%; margin-left: 0; transform: none; position: static; max-height: 0; padding: 0; overflow: hidden; border: none; transition: max-height 0.3s var(--ease-out-cubic), padding 0.3s; opacity: 1; }
     #filter-panel:not(.collapsed) { max-height: 500px; padding: 0; border: none; margin-bottom: 20px; }
     .settings-layout, .detail-workspace { flex-direction: column; }
-    /* FIX: Correct responsive settings navigation */
     .settings-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-bottom: 1px solid var(--border-primary); margin-bottom: 20px; }
     .settings-link { border-bottom: 3px solid transparent; border-radius: 0; flex-shrink: 0; }
     .settings-link.active, .settings-link:hover { border-bottom-color: var(--primary-blue); background-color: transparent; color: var(--primary-blue); }
@@ -246,6 +246,5 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     .page-title { font-size: 1.5rem; }
     .toolbar-actions { flex-wrap: wrap; justify-content: flex-end; }
     .profile-component { flex-direction: column; align-items: center; }
-    /* FIX: Hide welcome text on small phone screens */
     .nav-welcome-text { display: none; }
 }
