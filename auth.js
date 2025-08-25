@@ -1,4 +1,4 @@
-"use in strict";
+"use strict";
 
 // ---
 // RMO Job-Flow - auth.js (v2.0 - Blueprint Realized)
