@@ -113,7 +113,7 @@ export function updateNotificationBadge(count) {
 
 export function renderFooter() {
     let clock = document.getElementById('sidebar-clock');
-    if (clock) return;
+    if (clock) return; // Already rendered
     const footer = document.querySelector('.sidebar-footer');
     if(footer) {
         clock = document.createElement('div');
@@ -345,9 +345,9 @@ export function renderSettingsPage(profileData) {
     document.getElementById('security-section').innerHTML = `<h3>Security</h3><div class="form-group"><label for="profile-new-password">New Password</label><input type="password" id="profile-new-password" placeholder="Must be at least 6 characters"></div><div class="form-group"><label for="profile-confirm-password">Confirm New Password</label><input type="password" id="profile-confirm-password"></div><button id="update-password-btn" class="primary-action-btn">Update Password</button>`;
     document.getElementById('dataManagement-section').innerHTML = `<h3>Data Management</h3><p>Export your data regularly as a backup or import data from a previous session.</p><div class="settings-actions"><button id="export-data-btn" class="primary-action-btn"><i class="fa-solid fa-file-export"></i> Export All</button><button id="import-data-btn" class="secondary-btn"><i class="fa-solid fa-file-import"></i> Import</button></div><hr><p>To add multiple jobs at once, upload a JSON file.</p><div class="settings-actions"><button id="bulk-add-btn" class="primary-action-btn"><i class="fa-solid fa-file-upload"></i> Bulk Add Jobs</button></div>`;
     const prefs = profileData.preferences || {};
-    const timezones = Intl.supportedValuesOf('timeZone');
+    const timezones = {'Asia/Kolkata': 'IST', 'UTC': 'UTC', 'Australia/Sydney': 'AEST/AEDT', 'Australia/Perth': 'AWST'};
     const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    document.getElementById('preferences-section').innerHTML = `<h3>Preferences</h3><div class="form-group"><label>Appearance</label><div id="theme-selector" class="segmented-control"><button data-theme="light" class="segment-btn">Light</button><button data-theme="dark" class="segment-btn">Dark</button><button data-theme="system" class="segment-btn active">System</button></div></div><div class="form-group"><label for="timezone-selector">Your Timezone</label><select id="timezone-selector">${utils.createSelectOptions(timezones, prefs.timezone || defaultTz)}</select><p class="microcopy">Sets the default display time for dates.</p></div>`;
+    document.getElementById('preferences-section').innerHTML = `<h3>Preferences</h3><div class="form-group"><label>Appearance</label><div id="theme-selector" class="segmented-control"><button data-theme="light" class="segment-btn">Light</button><button data-theme="dark" class="segment-btn">Dark</button><button data-theme="system" class="segment-btn active">System</button></div></div><div class="form-group"><label for="timezone-selector">Your Timezone</label><select id="timezone-selector">${utils.createSelectOptions(timezones, prefs.timezone || defaultTz)}</select><p class="microcopy">Sets the default display time for dates.</p></div><button id="save-preferences-btn" class="primary-action-btn">Save Preferences</button>`;
     document.getElementById('account-section').innerHTML = `<div class="danger-zone"><h3>Danger Zone</h3><p>This action is permanent and cannot be undone.</p><button id="delete-account-btn" class="danger-btn">Delete Account</button></div>`;
     applyTheme(prefs.theme || 'system');
     setActiveSettingsSection('profile');
