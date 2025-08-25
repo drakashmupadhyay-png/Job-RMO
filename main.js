@@ -1,10 +1,9 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.4 - Final Implementation)
+// RMO Job-Flow - main.js (v2.5 - Bug Fixes & UI Polish)
 // Description: The central "brain" of the application. Manages state,
 // orchestrates modules, and handles all business logic and event listeners.
-// This is the complete, unabridged version.
 // ---
 
 import { auth } from './firebase-config.js';
@@ -27,6 +26,9 @@ let appState = {
         activeJobId: null,
         activeExperienceId: null,
         activeDocumentId: null,
+        dashboardView: 'table', // 'table' or 'calendar'
+        documentViewMode: 'list', // 'list' or 'grid'
+        isRemindersOpen: false,
     },
     filters: {
         dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' },
@@ -62,7 +64,7 @@ export function cleanupMainApp() {
     userProfileData = {};
     appState = {
         jobs: [], experiences: [], documents: [],
-        ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null },
+        ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null, dashboardView: 'table', documentViewMode: 'list', isRemindersOpen: false },
         filters: { dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' }, experienceBook: { search: '', tags: [] } }
     };
 }
@@ -82,10 +84,10 @@ function setupRealtimeListeners(userId) {
     });
 
     const jobsUnsubscribe = api.setupRealtimeListener(`users/${userId}/jobs`, (docs) => {
-        appState.jobs = docs.map(job => ({...job, closingDate: job.closingDate?.toDate(), followUpDate: job.followUpDate?.toDate(), interviewDate: job.interviewDate?.toDate()}));
+        appState.jobs = docs.map(job => ({...job, closingDate: job.closingDate?.toDate(), followUpDate: job.followUpDate?.toDate(), interviewDate: job.interviewDate?.toDate(), commencementDate: job.commencementDate?.toDate() }));
         checkReminders();
         if (appState.ui.currentPage === 'dashboard') {
-            ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
         }
     }, { orderBy: ["createdAt", "desc"] });
 
@@ -99,7 +101,7 @@ function setupRealtimeListeners(userId) {
     const documentsUnsubscribe = api.setupRealtimeListener(`users/${userId}/documents`, (docs) => {
         appState.documents = docs.map(doc => ({...doc, uploadedAt: doc.uploadedAt?.toDate() }));
         if (appState.ui.currentPage === 'documents') {
-            ui.renderDocumentsPage(appState.documents);
+            ui.renderDocumentsPage(appState.documents, [], appState.ui.documentViewMode);
         }
     });
     
@@ -119,7 +121,7 @@ function navigateTo(hash) {
 
     switch (pageId) {
         case 'dashboard':
-            ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
             currentPageCleanup = setupDashboardListeners();
             break;
         case 'settings':
@@ -138,7 +140,7 @@ function navigateTo(hash) {
             currentPageCleanup = setupExperienceBookListeners();
             break;
         case 'documents':
-            ui.renderDocumentsPage(appState.documents);
+            ui.renderDocumentsPage(appState.documents, [], appState.ui.documentViewMode);
             currentPageCleanup = setupDocumentsListeners();
             break;
         default:
@@ -160,11 +162,18 @@ function attachGlobalEventListeners() {
 function setupDashboardListeners() {
     const dashboardEl = document.getElementById('dashboard');
     dashboardEl.addEventListener('click', handleDashboardClicks);
+
+    // Filter/Sort Listeners
+    const filterPanel = document.getElementById('filter-panel');
+    filterPanel.addEventListener('change', handleDashboardFilterChange);
+    
     const searchInput = document.getElementById('search-bar');
     const debouncedSearch = utils.debounce(handleDashboardSearch, 300);
     searchInput.addEventListener('input', debouncedSearch);
+
     return () => {
         dashboardEl.removeEventListener('click', handleDashboardClicks);
+        filterPanel.removeEventListener('change', handleDashboardFilterChange);
         searchInput.removeEventListener('input', debouncedSearch);
     };
 }
@@ -172,10 +181,18 @@ function setupDashboardListeners() {
 function setupSettingsListeners() {
     const settingsEl = document.getElementById('settings');
     settingsEl.addEventListener('click', handleSettingsClicks);
+    
+    // Add specific listener for timezone to fix bug and provide instant feedback
+    const timezoneSelect = document.getElementById('timezone-selector');
+    const handleTimezoneChange = (e) => api.updateUserDocument(currentUser.uid, { 'preferences.timezone': e.target.value });
+    timezoneSelect.addEventListener('change', handleTimezoneChange);
+    
     const profileUpload = document.getElementById('profile-image-upload');
     profileUpload.addEventListener('change', handleProfileImageUpload);
+
     return () => {
         settingsEl.removeEventListener('click', handleSettingsClicks);
+        timezoneSelect.removeEventListener('change', handleTimezoneChange);
         profileUpload.removeEventListener('change', handleProfileImageUpload);
     };
 }
@@ -220,14 +237,19 @@ function setupDocumentsListeners() {
 // --- EVENT HANDLERS ---
 
 function handleGlobalClick(e) {
-    if (!e.target.closest('#nav-user-menu')) {
-        ui.closeUserDropdown();
+    if (!e.target.closest('#nav-user-menu')) ui.closeUserDropdown();
+    if (!e.target.closest('.reminders-container')) {
+        appState.ui.isRemindersOpen = false;
+        ui.toggleRemindersDropdown(false);
     }
 }
 
 function handleSidebarClicks(e) {
     const link = e.target.closest('.nav-link');
-    if (link) window.location.hash = link.getAttribute('href');
+    if (link) {
+        e.preventDefault();
+        window.location.hash = link.getAttribute('href');
+    }
     if(e.target.closest('.sidebar-header')) {
         appState.ui.isSidebarCollapsed = !appState.ui.isSidebarCollapsed;
         ui.toggleSidebar(appState.ui.isSidebarCollapsed);
@@ -238,6 +260,12 @@ function handleHeaderClicks(e) {
     if (e.target.closest('#logout-btn')) signOut(auth);
     if (e.target.closest('#nav-user-menu')) ui.toggleUserDropdown();
     if (e.target.closest('#mobile-menu-btn')) ui.toggleMobileSidebar(true);
+    if (e.target.closest('#smart-reminders-btn')) {
+        appState.ui.isRemindersOpen = !appState.ui.isRemindersOpen;
+        const urgentJobs = getUrgentJobs();
+        ui.renderRemindersDropdown(urgentJobs);
+        ui.toggleRemindersDropdown(appState.ui.isRemindersOpen);
+    }
 }
 
 function handleFabClick() {
@@ -256,6 +284,17 @@ function handleFabClick() {
 }
 
 function handleDashboardClicks(e) {
+    // View Switcher Logic
+    const viewBtn = e.target.closest('.view-btn');
+    if (viewBtn) {
+        const newView = viewBtn.id === 'calendar-view-btn' ? 'calendar' : 'table';
+        if (newView !== appState.ui.dashboardView) {
+            appState.ui.dashboardView = newView;
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
+        }
+    }
+
+    // Filter Panel Logic
     if (e.target.closest('#toggle-filters-btn')) {
         appState.ui.isFilterPanelOpen = !appState.ui.isFilterPanelOpen;
         ui.toggleFilterPanel(appState.ui.isFilterPanelOpen);
@@ -263,18 +302,22 @@ function handleDashboardClicks(e) {
     if (e.target.closest('#close-filter-panel-btn') || e.target.closest('#clear-filters-btn')) {
         if (e.target.closest('#clear-filters-btn')) {
             appState.filters.dashboard = { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' };
-            ui.resetDashboardFilters();
-            ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
         }
         appState.ui.isFilterPanelOpen = false;
         ui.toggleFilterPanel(false);
     }
+
+    // Row interaction Logic
     const row = e.target.closest('.interactive-row');
     if (row) {
         const jobId = row.dataset.jobId;
         const job = appState.jobs.find(j => j.id === jobId);
-        if (e.target.closest('.expand-icon')) ui.toggleRowExpansion(row, job);
-        else window.location.hash = `#applicationDetail/${jobId}`;
+        if (e.target.closest('.expand-icon')) {
+            ui.toggleRowExpansion(row, job);
+        } else if (!e.target.closest('.actions-menu-btn')) {
+            window.location.hash = `#applicationDetail/${jobId}`;
+        }
     }
 }
 
@@ -289,10 +332,7 @@ function handleSettingsClicks(e) {
         const theme = themeButton.dataset.theme;
         api.updateUserDocument(currentUser.uid, { 'preferences.theme': theme });
     }
-    const timezoneSelect = e.target.closest('#timezone-selector');
-    if(timezoneSelect) {
-        api.updateUserDocument(currentUser.uid, { 'preferences.timezone': timezoneSelect.value });
-    }
+    // Note: Timezone logic removed from here and placed in setupSettingsListeners for correctness
     if(e.target.closest('#save-profile-btn')) handleSaveProfile();
     if(e.target.closest('#update-password-btn')) handleUpdatePassword();
     if(e.target.closest('#interactive-avatar')) document.getElementById('profile-image-upload').click();
@@ -320,16 +360,31 @@ function handleExperienceBookClicks(e) {
     if (e.target.closest('#delete-exp-btn')) {
         handleDeleteExperience();
     }
+    const tagBtn = e.target.closest('.tag-filter-btn');
+    if(tagBtn) {
+        const tag = tagBtn.dataset.tag;
+        // Logic for tag filtering will be added in a future update
+    }
 }
 
 function handleDocumentsClicks(e) {
+    // View Switcher
+    const viewBtn = e.target.closest('.view-btn');
+    if (viewBtn) {
+        const newView = viewBtn.id === 'doc-grid-view-btn' ? 'grid' : 'list';
+        if (newView !== appState.ui.documentViewMode) {
+            appState.ui.documentViewMode = newView;
+            ui.renderDocumentsPage(appState.documents, [], newView);
+        }
+    }
+    // Inspector
     const docItem = e.target.closest('.interactive-row, .doc-grid-item');
     if (docItem) {
         appState.ui.activeDocumentId = docItem.dataset.docId;
         const doc = appState.documents.find(d => d.id === appState.ui.activeDocumentId);
         ui.renderDocumentInspector(doc);
     }
-     if (e.target.closest('#close-document-inspector-btn')) {
+    if (e.target.closest('#close-document-inspector-btn')) {
         ui.closeDocumentInspector();
     }
 }
@@ -338,11 +393,31 @@ function handleDocumentsClicks(e) {
 
 function handleDashboardSearch(e) {
     appState.filters.dashboard.search = e.target.value;
-    ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+    // Filtering logic will be fully implemented in a future update
+    ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
+}
+
+function handleDashboardFilterChange(e) {
+    if (e.target.tagName === 'SELECT') {
+        const filterKey = e.target.id.replace('-filter', ''); // 'state', 'type', 'status'
+        const filterMap = {
+            state: 'state',
+            type: 'type',
+            status: 'status',
+            'sort-by': 'sortBy'
+        };
+        const stateKey = filterMap[filterKey];
+        if (stateKey) {
+            appState.filters.dashboard[stateKey] = e.target.value;
+            // Full filtering logic to be added
+            ui.renderDashboard(appState.jobs, appState.filters.dashboard, appState.ui.dashboardView);
+        }
+    }
 }
 
 function handleExperienceSearch(e) {
     appState.filters.experienceBook.search = e.target.value;
+    // Filtering logic will be added
     ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
 }
 
@@ -480,15 +555,19 @@ async function handleDeleteExperience() {
     }
 }
 
-function checkReminders() {
+function getUrgentJobs() {
     const now = new Date();
     const endOfToday = new Date(now);
     endOfToday.setHours(23, 59, 59, 999);
     const activeJobs = appState.jobs.filter(job => !['Closed', 'Offer Declined', 'Unsuccessful'].includes(job.status));
-    const urgentJobs = activeJobs.filter(job => {
+    return activeJobs.filter(job => {
         const isClosingToday = job.closingDate && job.closingDate <= endOfToday;
         const isFollowUpDue = job.followUpDate && !job.followUpComplete && job.followUpDate <= endOfToday;
         return isClosingToday || isFollowUpDue;
     });
-    ui.updateNotificationBadge(urgentJobs.length);
 }
+
+function checkReminders() {
+    const urgentJobs = getUrgentJobs();
+    ui.updateNotificationBadge(urgentJobs.length);
+}```
