@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - ui.js (v2.7 - Page Switching Fix)
+// RMO Job-Flow - ui.js (v2.8 - Robustness Fix)
 // Description: The "dumb" renderer. Takes data from main.js and is
 // solely responsible for all DOM manipulation and rendering.
 // ---
@@ -9,7 +9,7 @@
 import * as utils from './utils.js';
 
 // --- SELECTORS (Cached for performance) ---
-// DECLARED HERE, BUT INITIALIZED LATER TO AVOID RACE CONDITION
+// This will still be used for elements we are confident are stable.
 let SELECTORS = {}; 
 
 let calendarInstance = null; // To hold the FullCalendar instance
@@ -44,16 +44,19 @@ export function applyTheme(theme) {
 }
 
 export function renderUserInfo(profile) {
-    if (SELECTORS.userName) SELECTORS.userName.textContent = profile.fullName?.split(' ')[0] || 'User';
-    if (SELECTORS.userImg) SELECTORS.userImg.src = profile.photoURL || 'placeholder.jpg';
+    const userNameEl = document.getElementById('nav-user-name');
+    const userImgEl = document.getElementById('nav-user-img');
+    const userDropdownEl = document.getElementById('user-dropdown');
+
+    if (userNameEl) userNameEl.textContent = profile.fullName?.split(' ')[0] || 'User';
+    if (userImgEl) userImgEl.src = profile.photoURL || 'placeholder.jpg';
     
-    const dropdown = SELECTORS.userDropdown;
-    if (dropdown) {
-        let headerEl = dropdown.querySelector('.dropdown-profile-header');
+    if (userDropdownEl) {
+        let headerEl = userDropdownEl.querySelector('.dropdown-profile-header');
         if (!headerEl) {
             headerEl = document.createElement('div');
             headerEl.className = 'dropdown-profile-header';
-            dropdown.prepend(headerEl);
+            userDropdownEl.prepend(headerEl);
         }
         headerEl.innerHTML = `
             <img src="${profile.photoURL || 'placeholder.jpg'}" alt="User Avatar">
@@ -64,19 +67,23 @@ export function renderUserInfo(profile) {
 }
 
 export function toggleUserDropdown() {
-    if (SELECTORS.userDropdown) SELECTORS.userDropdown.classList.toggle('hidden');
+    // FIX: Directly query the element to prevent stale references.
+    const userDropdown = document.getElementById('user-dropdown');
+    if (userDropdown) userDropdown.classList.toggle('hidden');
 }
 
 export function closeUserDropdown() {
-    if (SELECTORS.userDropdown) SELECTORS.userDropdown.classList.add('hidden');
+    const userDropdown = document.getElementById('user-dropdown');
+    if (userDropdown) userDropdown.classList.add('hidden');
 }
 
 export function toggleRemindersDropdown(shouldOpen) {
-    if (SELECTORS.remindersDropdown) SELECTORS.remindersDropdown.classList.toggle('hidden', !shouldOpen);
+    const remindersDropdown = document.getElementById('reminders-dropdown');
+    if (remindersDropdown) remindersDropdown.classList.toggle('hidden', !shouldOpen);
 }
 
 export function renderRemindersDropdown(urgentJobs) {
-    const container = SELECTORS.remindersDropdown;
+    const container = document.getElementById('reminders-dropdown');
     if (!container) return;
 
     let content = '<div class="reminders-header">Urgent Reminders</div>';
@@ -104,7 +111,8 @@ export function renderRemindersDropdown(urgentJobs) {
 }
 
 export function toggleSidebar(isCollapsed) {
-    if (SELECTORS.appSidebar) SELECTORS.appSidebar.classList.toggle('collapsed', isCollapsed);
+    const appSidebar = document.getElementById('app-sidebar');
+    if (appSidebar) appSidebar.classList.toggle('collapsed', isCollapsed);
 }
 
 export function toggleMobileSidebar(shouldOpen) {
@@ -134,51 +142,53 @@ export function setActivePage(pageId) {
         p.classList.add('hidden');
     });
 
-    // Handle the specific case where the navigation ID differs from the element ID.
     const elementIdToActivate = pageId === 'applicationDetail' ? 'applicationDetailPage' : pageId;
     const activePage = document.getElementById(elementIdToActivate);
 
     if (activePage) {
         activePage.classList.remove('hidden');
     } else {
-        // Fallback to the dashboard if a page isn't found, preventing a blank screen.
         console.warn(`Page with ID "${elementIdToActivate}" not found. Falling back to dashboard.`);
         const dashboard = document.getElementById('dashboard');
         if (dashboard) dashboard.classList.remove('hidden');
     }
     
-    // Correctly highlight the active link in the sidebar.
-    if (SELECTORS.appSidebar) {
-        const pageToHighlight = pageId.split('/')[0]; // This is 'dashboard', 'experienceBook', etc.
-        SELECTORS.appSidebar.querySelectorAll('.nav-link').forEach(link => {
+    // FIX: Directly query the sidebar to prevent stale references.
+    const appSidebar = document.getElementById('app-sidebar');
+    if (appSidebar) {
+        const pageToHighlight = pageId.split('/')[0];
+        appSidebar.querySelectorAll('.nav-link').forEach(link => {
             link.classList.toggle('active', link.getAttribute('href') === `#${pageToHighlight}`);
         });
     }
 }
 
 export function updateFAB(pageId) {
-    if (!SELECTORS.fab) return;
-    const fabIcon = SELECTORS.fab.querySelector('i');
+    // FIX: Directly query the FAB to prevent stale references.
+    const fab = document.getElementById('fab');
+    if (!fab) return;
+    
+    const fabIcon = fab.querySelector('i');
     const pageToShow = pageId.split('/')[0];
 
     switch (pageToShow) {
         case 'dashboard': 
-            SELECTORS.fab.title = "Add New Application"; 
+            fab.title = "Add New Application"; 
             fabIcon.className = "fa-solid fa-plus"; 
-            SELECTORS.fab.classList.remove('hidden'); 
+            fab.classList.remove('hidden'); 
             break;
         case 'experienceBook': 
-            SELECTORS.fab.title = "Add New Experience"; 
+            fab.title = "Add New Experience"; 
             fabIcon.className = "fa-solid fa-plus"; 
-            SELECTORS.fab.classList.remove('hidden'); 
+            fab.classList.remove('hidden'); 
             break;
         case 'documents': 
-            SELECTORS.fab.title = "Upload Document"; 
+            fab.title = "Upload Document"; 
             fabIcon.className = "fa-solid fa-cloud-arrow-up"; 
-            SELECTORS.fab.classList.remove('hidden'); 
+            fab.classList.remove('hidden'); 
             break;
         default: 
-            SELECTORS.fab.classList.add('hidden');
+            fab.classList.add('hidden');
     }
 }
 
