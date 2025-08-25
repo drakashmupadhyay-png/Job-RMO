@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - ui.js (v2.6 - Initialization Fix)
+// RMO Job-Flow - ui.js (v2.7 - Page Switching Fix)
 // Description: The "dumb" renderer. Takes data from main.js and is
 // solely responsible for all DOM manipulation and rendering.
 // ---
@@ -47,7 +47,6 @@ export function renderUserInfo(profile) {
     if (SELECTORS.userName) SELECTORS.userName.textContent = profile.fullName?.split(' ')[0] || 'User';
     if (SELECTORS.userImg) SELECTORS.userImg.src = profile.photoURL || 'placeholder.jpg';
     
-    // Render user info into the dropdown menu (Google-style)
     const dropdown = SELECTORS.userDropdown;
     if (dropdown) {
         let headerEl = dropdown.querySelector('.dropdown-profile-header');
@@ -130,15 +129,29 @@ export function toggleMobileSidebar(shouldOpen) {
 }
 
 export function setActivePage(pageId) {
-    if (SELECTORS.pageContainer) {
-        SELECTORS.pageContainer.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+    // Robustly hide all pages first by querying the entire document.
+    document.querySelectorAll('.page-content').forEach(p => {
+        p.classList.add('hidden');
+    });
+
+    // Handle the specific case where the navigation ID differs from the element ID.
+    const elementIdToActivate = pageId === 'applicationDetail' ? 'applicationDetailPage' : pageId;
+    const activePage = document.getElementById(elementIdToActivate);
+
+    if (activePage) {
+        activePage.classList.remove('hidden');
+    } else {
+        // Fallback to the dashboard if a page isn't found, preventing a blank screen.
+        console.warn(`Page with ID "${elementIdToActivate}" not found. Falling back to dashboard.`);
+        const dashboard = document.getElementById('dashboard');
+        if (dashboard) dashboard.classList.remove('hidden');
     }
-    const activePage = document.getElementById(pageId);
-    if (activePage) activePage.classList.remove('hidden');
     
+    // Correctly highlight the active link in the sidebar.
     if (SELECTORS.appSidebar) {
+        const pageToHighlight = pageId.split('/')[0]; // This is 'dashboard', 'experienceBook', etc.
         SELECTORS.appSidebar.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.toggle('active', link.getAttribute('href') === `#${pageId.split('/')[0]}`);
+            link.classList.toggle('active', link.getAttribute('href') === `#${pageToHighlight}`);
         });
     }
 }
@@ -146,11 +159,26 @@ export function setActivePage(pageId) {
 export function updateFAB(pageId) {
     if (!SELECTORS.fab) return;
     const fabIcon = SELECTORS.fab.querySelector('i');
-    switch (pageId) {
-        case 'dashboard': SELECTORS.fab.title = "Add New Application"; fabIcon.className = "fa-solid fa-plus"; SELECTORS.fab.classList.remove('hidden'); break;
-        case 'experienceBook': SELECTORS.fab.title = "Add New Experience"; fabIcon.className = "fa-solid fa-plus"; SELECTORS.fab.classList.remove('hidden'); break;
-        case 'documents': SELECTORS.fab.title = "Upload Document"; fabIcon.className = "fa-solid fa-cloud-arrow-up"; SELECTORS.fab.classList.remove('hidden'); break;
-        default: SELECTORS.fab.classList.add('hidden');
+    const pageToShow = pageId.split('/')[0];
+
+    switch (pageToShow) {
+        case 'dashboard': 
+            SELECTORS.fab.title = "Add New Application"; 
+            fabIcon.className = "fa-solid fa-plus"; 
+            SELECTORS.fab.classList.remove('hidden'); 
+            break;
+        case 'experienceBook': 
+            SELECTORS.fab.title = "Add New Experience"; 
+            fabIcon.className = "fa-solid fa-plus"; 
+            SELECTORS.fab.classList.remove('hidden'); 
+            break;
+        case 'documents': 
+            SELECTORS.fab.title = "Upload Document"; 
+            fabIcon.className = "fa-solid fa-cloud-arrow-up"; 
+            SELECTORS.fab.classList.remove('hidden'); 
+            break;
+        default: 
+            SELECTORS.fab.classList.add('hidden');
     }
 }
 
