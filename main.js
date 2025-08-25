@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.9 - Filtering Logic)
+// RMO Job-Flow - main.js (v2.10 - Actions Menu & Header Title)
 // Description: The central "brain" of the application. Manages state,
 // orchestrates modules, and handles all business logic and event listeners.
 // ---
@@ -29,6 +29,7 @@ let appState = {
         dashboardView: 'table', 
         documentViewMode: 'list',
         isRemindersOpen: false,
+        activeActionMenu: null, // Holds the ID of the job whose action menu is open
     },
     filters: {
         dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' },
@@ -64,7 +65,7 @@ export function cleanupMainApp() {
     userProfileData = {};
     appState = {
         jobs: [], experiences: [], documents: [],
-        ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null, dashboardView: 'table', documentViewMode: 'list', isRemindersOpen: false },
+        ui: { currentPage: 'dashboard', isFilterPanelOpen: false, isSidebarCollapsed: false, activeJobId: null, activeExperienceId: null, activeDocumentId: null, dashboardView: 'table', documentViewMode: 'list', isRemindersOpen: false, activeActionMenu: null },
         filters: { dashboard: { state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' }, experienceBook: { search: '', tags: [] } }
     };
 }
@@ -259,6 +260,11 @@ function handleGlobalClick(e) {
         appState.ui.isRemindersOpen = false;
         ui.toggleRemindersDropdown(false);
     }
+    // THE FIX: Close the actions menu if clicking outside of it
+    if (!e.target.closest('.actions-menu-btn') && !e.target.closest('#actions-menu')) {
+        ui.closeActionsMenu();
+        appState.ui.activeActionMenu = null;
+    }
 }
 
 function handleSidebarClicks(e) {
@@ -323,14 +329,33 @@ function handleDashboardClicks(e) {
         appState.ui.isFilterPanelOpen = false;
         ui.toggleFilterPanel(false);
     }
+    
+    // Actions Menu Logic
+    const actionMenuBtn = e.target.closest('.actions-menu-btn');
+    if (actionMenuBtn) {
+        const jobId = actionMenuBtn.dataset.jobId;
+        appState.ui.activeActionMenu = jobId;
+        const job = appState.jobs.find(j => j.id === jobId);
+        ui.showActionsMenu(actionMenuBtn, job);
+    }
+
+    // Handle clicks inside the actions menu
+    const actionMenuItem = e.target.closest('.context-menu-item');
+    if (actionMenuItem) {
+        const action = actionMenuItem.dataset.action;
+        const jobId = appState.ui.activeActionMenu;
+        handleJobAction(action, jobId);
+        ui.closeActionsMenu();
+        appState.ui.activeActionMenu = null;
+    }
 
     const row = e.target.closest('.interactive-row');
-    if (row) {
+    if (row && !actionMenuBtn && !actionMenuItem) {
         const jobId = row.dataset.jobId;
         const job = appState.jobs.find(j => j.id === jobId);
         if (e.target.closest('.expand-icon')) {
             ui.toggleRowExpansion(row, job);
-        } else if (!e.target.closest('.actions-menu-btn')) {
+        } else {
             window.location.hash = `#applicationDetail/${jobId}`;
         }
     }
@@ -354,8 +379,8 @@ function handleSettingsClicks(e) {
 
 function handleApplicationDetailClicks(e) {
     if(e.target.closest('#save-app-btn')) handleSaveApplication();
-    if(e.target.closest('#delete-app-btn')) handleDeleteApplication();
-    if(e.target.closest('#duplicate-app-btn')) handleDuplicateApplication();
+    if(e.target.closest('#delete-app-btn')) handleDeleteApplication(appState.ui.activeJobId);
+    if(e.target.closest('#duplicate-app-btn')) handleDuplicateApplication(appState.ui.activeJobId);
 }
 
 function handleExperienceBookClicks(e) {
@@ -375,24 +400,22 @@ function handleExperienceBookClicks(e) {
         handleDeleteExperience();
     }
     
-    // THE FIX: Handle tag filter clicks
     const tagBtn = e.target.closest('.tag-filter-btn');
     if(tagBtn) {
         const tag = tagBtn.dataset.tag;
         const activeTags = appState.filters.experienceBook.tags;
         
         if (tag === 'all') {
-            activeTags.length = 0; // Clear the array
+            activeTags.length = 0;
         } else {
             const tagIndex = activeTags.indexOf(tag);
             if (tagIndex > -1) {
-                activeTags.splice(tagIndex, 1); // Remove tag if it's already active
+                activeTags.splice(tagIndex, 1);
             } else {
-                activeTags.push(tag); // Add tag if it's not active
+                activeTags.push(tag);
             }
         }
         
-        // Re-render the experience book with the new filters
         ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
     }
 }
@@ -428,6 +451,23 @@ function handleDocumentsClicks(e) {
 }
 
 // --- ACTION LOGIC ---
+
+function handleJobAction(action, jobId) {
+    if (!jobId) return;
+
+    switch (action) {
+        case 'edit':
+            window.location.hash = `#applicationDetail/${jobId}`;
+            break;
+        case 'duplicate':
+            handleDuplicateApplication(jobId);
+            break;
+        case 'delete':
+            handleDeleteApplication(jobId);
+            break;
+        // Add more cases here for changing status, etc.
+    }
+}
 
 function handleDashboardSearch(e) {
     appState.filters.dashboard.search = e.target.value;
@@ -527,20 +567,20 @@ async function handleSaveApplication() {
     } catch(err) { ui.showToast(`Could not save: ${err.message}`, "error"); }
 }
 
-async function handleDeleteApplication() {
-    const idToDelete = appState.ui.activeJobId;
+async function handleDeleteApplication(idToDelete) {
     if (!idToDelete || idToDelete === 'new' || idToDelete === 'new-from-duplicate') return;
     if (confirm("Are you sure you want to permanently delete this application? This action cannot be undone.")) {
         try {
             await api.deleteDocument(`users/${currentUser.uid}/jobs/${idToDelete}`);
             ui.showToast("Application deleted.", "success");
-            window.location.hash = '#dashboard';
+            if (appState.ui.currentPage === 'applicationDetail') {
+                window.location.hash = '#dashboard';
+            }
         } catch (err) { ui.showToast(`Deletion failed: ${err.message}`, "error"); }
     }
 }
 
-function handleDuplicateApplication() {
-    const idToDup = appState.ui.activeJobId;
+function handleDuplicateApplication(idToDup) {
     if (!idToDup) return;
     const originalJob = appState.jobs.find(j => j.id === idToDup);
     if (originalJob) {
