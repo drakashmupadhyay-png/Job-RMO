@@ -1,9 +1,10 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.2 - Final Blueprint Polish)
+// RMO Job-Flow - main.js (v2.3 - Final Blueprint Implementation)
 // Description: The central "brain" of the application. Manages state,
 // orchestrates modules, and handles all business logic and event listeners.
+// This is the complete, unabridged version.
 // ---
 
 import { auth } from './firebase-config.js';
@@ -41,7 +42,7 @@ let clockInterval = null;
 export function initializeMainApp(user) {
     currentUser = user;
     console.log("Initializing main application for user:", user.uid);
-    ui.renderFooter(); // Render the footer with the clock
+    ui.renderFooter();
     clockInterval = setInterval(() => ui.updateClock(userProfileData.preferences?.timezone), 1000);
     setupRealtimeListeners(user.uid);
     attachGlobalEventListeners();
@@ -86,9 +87,22 @@ function setupRealtimeListeners(userId) {
             ui.renderDashboard(appState.jobs, appState.filters.dashboard);
         }
     }, { orderBy: ["createdAt", "desc"] });
+
+    const experiencesUnsubscribe = api.setupRealtimeListener(`users/${userId}/experiences`, (docs) => {
+        appState.experiences = docs;
+        if (appState.ui.currentPage === 'experienceBook') {
+            ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
+        }
+    });
+
+    const documentsUnsubscribe = api.setupRealtimeListener(`users/${userId}/documents`, (docs) => {
+        appState.documents = docs.map(doc => ({...doc, uploadedAt: doc.uploadedAt?.toDate() }));
+        if (appState.ui.currentPage === 'documents') {
+            ui.renderDocumentsPage(appState.documents);
+        }
+    });
     
-    // Add other listeners when ready
-    realtimeListeners.push(userUnsubscribe, jobsUnsubscribe);
+    realtimeListeners.push(userUnsubscribe, jobsUnsubscribe, experiencesUnsubscribe, documentsUnsubscribe);
 }
 
 // --- NAVIGATION ---
@@ -120,11 +134,11 @@ function navigateTo(hash) {
             break;
         case 'experienceBook':
             ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
-            currentPageCleanup = () => {};
+            currentPageCleanup = setupExperienceBookListeners();
             break;
         case 'documents':
             ui.renderDocumentsPage(appState.documents);
-            currentPageCleanup = () => {};
+            currentPageCleanup = setupDocumentsListeners();
             break;
         default:
             window.location.hash = '#dashboard';
@@ -136,7 +150,7 @@ function navigateTo(hash) {
 
 function attachGlobalEventListeners() {
     window.addEventListener('hashchange', () => navigateTo(window.location.hash));
-    window.addEventListener('click', handleGlobalClick); // For closing dropdowns
+    window.addEventListener('click', handleGlobalClick);
     document.getElementById('app-sidebar').addEventListener('click', handleSidebarClicks);
     document.getElementById('global-header').addEventListener('click', handleHeaderClicks);
     document.getElementById('fab').addEventListener('click', handleFabClick);
@@ -173,10 +187,38 @@ function setupApplicationDetailListeners() {
     };
 }
 
+function setupExperienceBookListeners() {
+    const expPage = document.getElementById('experienceBook');
+    expPage.addEventListener('click', handleExperienceBookClicks);
+    const searchInput = document.getElementById('experience-search-bar');
+    const debouncedSearch = utils.debounce(handleExperienceSearch, 300);
+    searchInput.addEventListener('input', debouncedSearch);
+    return () => {
+        expPage.removeEventListener('click', handleExperienceBookClicks);
+        searchInput.removeEventListener('input', debouncedSearch);
+    };
+}
+
+function setupDocumentsListeners() {
+    const docPage = document.getElementById('documents');
+    docPage.addEventListener('click', handleDocumentsClicks);
+    const dropzone = document.getElementById('upload-dropzone');
+    const docInput = document.getElementById('master-doc-file-input');
+    const dropzoneClickHandler = () => docInput.click();
+    const docInputChangeHandler = (e) => handleMasterDocumentUpload(e);
+    
+    dropzone.addEventListener('click', dropzoneClickHandler);
+    docInput.addEventListener('change', docInputChangeHandler);
+
+    return () => {
+        dropzone.removeEventListener('click', dropzoneClickHandler);
+        docInput.removeEventListener('change', docInputChangeHandler);
+    };
+}
+
 // --- EVENT HANDLERS ---
 
 function handleGlobalClick(e) {
-    // Close user dropdown if click is outside of it
     if (!e.target.closest('#nav-user-menu')) {
         ui.closeUserDropdown();
     }
@@ -199,8 +241,16 @@ function handleHeaderClicks(e) {
 
 function handleFabClick() {
     switch (appState.ui.currentPage) {
-        case 'dashboard': window.location.hash = '#applicationDetail/new'; break;
-        // Other FAB actions
+        case 'dashboard':
+            window.location.hash = '#applicationDetail/new';
+            break;
+        case 'experienceBook':
+            appState.ui.activeExperienceId = null;
+            ui.renderExperienceInspector(null);
+            break;
+        case 'documents':
+            document.getElementById('master-doc-file-input').click();
+            break;
     }
 }
 
@@ -249,11 +299,43 @@ function handleApplicationDetailClicks(e) {
     if(e.target.closest('#duplicate-app-btn')) handleDuplicateApplication();
 }
 
+function handleExperienceBookClicks(e) {
+    const card = e.target.closest('.experience-card');
+    if (card) {
+        appState.ui.activeExperienceId = card.dataset.experienceId;
+        const exp = appState.experiences.find(e => e.id === appState.ui.activeExperienceId);
+        ui.renderExperienceInspector(exp);
+    }
+    if (e.target.closest('#close-experience-inspector-btn')) {
+        ui.closeExperienceInspector();
+    }
+    if (e.target.closest('#save-exp-btn')) {
+        handleSaveExperience();
+    }
+}
+
+function handleDocumentsClicks(e) {
+    const docItem = e.target.closest('.interactive-row, .doc-grid-item');
+    if (docItem) {
+        appState.ui.activeDocumentId = docItem.dataset.docId;
+        const doc = appState.documents.find(d => d.id === appState.ui.activeDocumentId);
+        ui.renderDocumentInspector(doc);
+    }
+     if (e.target.closest('#close-document-inspector-btn')) {
+        ui.closeDocumentInspector();
+    }
+}
+
 // --- ACTION LOGIC ---
 
 function handleDashboardSearch(e) {
     appState.filters.dashboard.search = e.target.value;
     ui.renderDashboard(appState.jobs, appState.filters.dashboard);
+}
+
+function handleExperienceSearch(e) {
+    appState.filters.experienceBook.search = e.target.value;
+    ui.renderExperienceBook(appState.experiences, appState.filters.experienceBook);
 }
 
 async function handleSaveProfile() {
@@ -290,6 +372,21 @@ async function handleProfileImageUpload(e) {
         await api.updateAuthProfile({ photoURL });
         await api.updateUserDocument(currentUser.uid, { photoURL });
         ui.showToast("Profile image updated!", "success");
+    } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
+}
+
+async function handleMasterDocumentUpload(e) {
+    const files = e.target.files;
+    if (!files.length) return;
+    ui.showToast(`Uploading ${files.length} document(s)...`);
+    try {
+        for (const file of files) {
+            const path = `users/${currentUser.uid}/documents/${Date.now()}_${file.name}`;
+            const downloadURL = await api.uploadFile(path, file);
+            const docData = { name: file.name, url: downloadURL, path, size: file.size, type: file.type, uploadedAt: new Date() };
+            await api.addDocument(`users/${currentUser.uid}/documents`, docData);
+        }
+        ui.showToast("Upload complete!", "success");
     } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
 }
 
@@ -333,8 +430,32 @@ function handleDuplicateApplication() {
         delete newJobData.id;
         newJobData.jobTitle = `${originalJob.jobTitle} (Copy)`;
         newJobData.status = 'Identified';
+        // Set a new active ID to signal we're in "new" mode but with pre-filled data
+        appState.ui.activeJobId = 'new-from-duplicate'; 
         ui.renderApplicationDetailPage(newJobData);
         ui.showToast("Application duplicated. Editing the new copy.");
+    }
+}
+
+async function handleSaveExperience() {
+    const data = ui.getExperienceInspectorData();
+    if(!data.title) { ui.showToast("Title is required.", "error"); return; }
+    
+    const isNew = !appState.ui.activeExperienceId;
+    const path = `users/${currentUser.uid}/experiences`;
+    ui.showToast(isNew ? "Creating experience..." : "Updating experience...");
+    try {
+        if(isNew) {
+            data.createdAt = new Date();
+            await api.addDocument(path, data);
+            ui.showToast("Experience created!", "success");
+        } else {
+            await api.updateDocument(`${path}/${appState.ui.activeExperienceId}`, data);
+            ui.showToast("Experience updated!", "success");
+        }
+        ui.closeExperienceInspector();
+    } catch(err) {
+        ui.showToast(`Could not save: ${err.message}`, "error");
     }
 }
 
@@ -342,14 +463,11 @@ function checkReminders() {
     const now = new Date();
     const endOfToday = new Date(now);
     endOfToday.setHours(23, 59, 59, 999);
-
     const activeJobs = appState.jobs.filter(job => !['Closed', 'Offer Declined', 'Unsuccessful'].includes(job.status));
-    
     const urgentJobs = activeJobs.filter(job => {
         const isClosingToday = job.closingDate && job.closingDate <= endOfToday;
         const isFollowUpDue = job.followUpDate && !job.followUpComplete && job.followUpDate <= endOfToday;
         return isClosingToday || isFollowUpDue;
     });
-
     ui.updateNotificationBadge(urgentJobs.length);
 }
