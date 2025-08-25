@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - ui.js (v2.4 - Final Implementation)
+// RMO Job-Flow - ui.js (v2.5 - Bug Fixes & UI Polish)
 // Description: The "dumb" renderer. Takes data from main.js and is
 // solely responsible for all DOM manipulation and rendering. This is the
 // complete, unabridged version with no placeholders.
@@ -17,7 +17,10 @@ const SELECTORS = {
     userName: document.getElementById('nav-user-name'),
     userImg: document.getElementById('nav-user-img'),
     userDropdown: document.getElementById('user-dropdown'),
+    remindersDropdown: document.getElementById('reminders-dropdown'),
 };
+
+let calendarInstance = null; // To hold the FullCalendar instance
 
 // --- GLOBAL UI MANIPULATION ---
 
@@ -35,16 +38,17 @@ export function renderUserInfo(profile) {
     if (SELECTORS.userName) SELECTORS.userName.textContent = profile.fullName?.split(' ')[0] || 'User';
     if (SELECTORS.userImg) SELECTORS.userImg.src = profile.photoURL || 'placeholder.jpg';
     
-    // Render user info into the dropdown menu
+    // Render user info into the dropdown menu (Google-style)
     const dropdown = SELECTORS.userDropdown;
     if (dropdown) {
-        let infoEl = dropdown.querySelector('.dropdown-profile-info');
-        if (!infoEl) {
-            infoEl = document.createElement('div');
-            infoEl.className = 'dropdown-profile-info';
-            dropdown.prepend(infoEl);
+        let headerEl = dropdown.querySelector('.dropdown-profile-header');
+        if (!headerEl) {
+            headerEl = document.createElement('div');
+            headerEl.className = 'dropdown-profile-header';
+            dropdown.prepend(headerEl);
         }
-        infoEl.innerHTML = `
+        headerEl.innerHTML = `
+            <img src="${profile.photoURL || 'placeholder.jpg'}" alt="User Avatar">
             <strong>${profile.fullName || 'User'}</strong>
             <span>${profile.email || ''}</span>
         `;
@@ -57,6 +61,38 @@ export function toggleUserDropdown() {
 
 export function closeUserDropdown() {
     SELECTORS.userDropdown.classList.add('hidden');
+}
+
+export function toggleRemindersDropdown(shouldOpen) {
+    SELECTORS.remindersDropdown.classList.toggle('hidden', !shouldOpen);
+}
+
+export function renderRemindersDropdown(urgentJobs) {
+    const container = SELECTORS.remindersDropdown;
+    if (!container) return;
+
+    let content = '<div class="reminders-header">Urgent Reminders</div>';
+    if (urgentJobs.length === 0) {
+        content += '<div class="reminders-empty">No urgent reminders.</div>';
+    } else {
+        content += urgentJobs.map(job => {
+            const closingToday = job.closingDate && job.closingDate <= new Date();
+            const followUpDue = job.followUpDate && !job.followUpComplete && job.followUpDate <= new Date();
+            let reason = '';
+            if (closingToday) reason = 'Closes today';
+            else if (followUpDue) reason = 'Follow-up due today';
+
+            return `
+                <div class="reminder-item">
+                    <a href="#applicationDetail/${job.id}">
+                        <strong>${job.jobTitle}</strong>
+                        <span>${reason}</span>
+                    </a>
+                </div>
+            `;
+        }).join('');
+    }
+    container.innerHTML = content;
 }
 
 export function toggleSidebar(isCollapsed) {
@@ -89,7 +125,7 @@ export function setActivePage(pageId) {
     const activePage = document.getElementById(pageId);
     if (activePage) activePage.classList.remove('hidden');
     SELECTORS.appSidebar.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.toggle('active', link.getAttribute('href') === `#${pageId}`);
+        link.classList.toggle('active', link.getAttribute('href') === `#${pageId.split('/')[0]}`);
     });
 }
 
@@ -140,16 +176,94 @@ export function updateClock(timezone) {
 
 // --- DASHBOARD RENDERING ---
 
-export function renderDashboard(jobs, filters) {
+export function renderDashboard(jobs, filters, viewMode = 'table') {
+    const tableView = document.getElementById('table-view-container');
+    const calendarView = document.getElementById('calendar-view-container');
+    
+    document.getElementById('table-view-btn').classList.toggle('active', viewMode === 'table');
+    document.getElementById('calendar-view-btn').classList.toggle('active', viewMode === 'calendar');
+
+    if (viewMode === 'calendar') {
+        tableView.classList.add('hidden');
+        calendarView.classList.remove('hidden');
+        renderCalendarView(jobs);
+    } else {
+        calendarView.classList.add('hidden');
+        tableView.classList.remove('hidden');
+        renderTableView(jobs, filters);
+    }
+}
+
+function renderTableView(jobs, filters) {
     const jobsTableBody = document.getElementById('jobs-table-body');
     if (!jobsTableBody) return;
-    const filteredJobs = jobs; // Note: Filtering logic will be added later
+
+    // Filtering logic will be added in the next step
+    const filteredJobs = jobs; 
+
     if (filteredJobs.length === 0) {
-        jobsTableBody.innerHTML = `<tr><td colspan="7" class="empty-state-cell">No applications found. Click the '+' button to add one!</td></tr>`;
+        jobsTableBody.innerHTML = `<tr><td colspan="7" class="empty-state-cell"><div class="empty-state-container"><i class="fa-solid fa-table-list"></i><h3>No applications found.</h3><p>Click the '+' button to add one!</p></div></td></tr>`;
     } else {
         jobsTableBody.innerHTML = filteredJobs.map(job => renderJobRow(job)).join('');
     }
     renderDashboardFilters(filters);
+}
+
+function renderCalendarView(jobs) {
+    const calendarEl = document.getElementById('calendar');
+    if (!calendarEl) return;
+
+    const events = jobs.flatMap(job => {
+        const jobEvents = [];
+        if (job.closingDate) {
+            jobEvents.push({
+                title: `Closes: ${job.jobTitle}`,
+                start: job.closingDate,
+                id: job.id,
+                backgroundColor: '#e74c3c',
+                borderColor: '#e74c3c'
+            });
+        }
+        if (job.followUpDate) {
+            jobEvents.push({
+                title: `Follow-up: ${job.jobTitle}`,
+                start: job.followUpDate,
+                id: job.id,
+                backgroundColor: '#9b59b6',
+                borderColor: '#9b59b6'
+            });
+        }
+        if (job.interviewDate) {
+            jobEvents.push({
+                title: `Interview: ${job.jobTitle}`,
+                start: job.interviewDate,
+                id: job.id,
+                backgroundColor: '#2ecc71',
+                borderColor: '#2ecc71'
+            });
+        }
+        return jobEvents;
+    });
+
+    if (calendarInstance) {
+        calendarInstance.destroy();
+    }
+
+    calendarInstance = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listWeek'
+        },
+        events: events,
+        eventClick: function(info) {
+            info.jsEvent.preventDefault(); // don't let the browser navigate
+            window.location.hash = `#applicationDetail/${info.event.id}`;
+        }
+    });
+
+    calendarInstance.render();
 }
 
 function renderJobRow(job) {
@@ -190,96 +304,127 @@ export function resetDashboardFilters() {
     renderDashboardFilters({ state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' });
 }
 
-// --- APPLICATION DETAIL PAGE RENDERING ---
+// --- APPLICATION DETAIL PAGE RENDERING (REWRITTEN) ---
 
 export function renderApplicationDetailPage(jobData) {
     const page = document.getElementById('applicationDetailPage');
     page.innerHTML = '';
     const isNew = !jobData || !jobData.id || jobData.id === 'new-from-duplicate';
-    const data = jobData || { status: 'Identified', jobTitle: '', hospital: '' };
-    page.innerHTML = `
-        <header class="detail-summary-header"><div><h2 id="detail-summary-title" contenteditable="true" placeholder="Job Title*">${data.jobTitle}</h2><p id="detail-summary-hospital" contenteditable="true" placeholder="Enter hospital name">@ ${data.hospital}</p></div><div class="summary-status-container"><span id="detail-summary-status" class="tag status-${utils.kebabCase(data.status)}">${data.status}</span></div></header>
-        <div class="detail-workspace">
-            <aside class="detail-nav-pane">${renderDetailNavPane(data)}</aside>
-            <div class="detail-content-pane">${renderDetailContentPanes(data)}</div>
-        </div>
-        <footer class="detail-footer"><button id="delete-app-btn" class="danger-btn ${isNew ? 'hidden' : ''}">Delete Application</button><div><button id="duplicate-app-btn" class="secondary-btn ${isNew ? 'hidden' : ''}">Duplicate</button><button id="save-app-btn" class="primary-action-btn">${isNew ? 'Create Application' : 'Save Changes'}</button></div></footer>
-    `;
-}
-
-function renderDetailNavPane(data) {
-    return `
-        <nav class="in-page-nav"><a href="#overview" class="in-page-link active">Overview</a><a href="#workbench" class="in-page-link">Workbench</a><a href="#app-documents" class="in-page-link">Documents</a></nav>
-        <section class="key-info-section">
-            <h3>Key Information</h3>
-            <div class="key-info-grid">
-                <div class="key-info-item"><label>Job ID / Req Code</label><span id="detail-job-id" contenteditable="true" class="editable-field" placeholder="e.g., REQ12345">${data.jobId || ''}</span></div>
-                <div class="key-info-item"><label>Location</label><span id="detail-location" contenteditable="true" class="editable-field" placeholder="e.g., Sydney, NSW">${data.location || ''}</span></div>
-                <div class="key-info-item"><label>Specialty</label><span id="detail-specialty" contenteditable="true" class="editable-field" placeholder="e.g., Emergency Medicine">${data.specialty || ''}</span></div>
-                <div class="key-info-item"><label>Source URL</label><span id="detail-source-url" contenteditable="true" class="editable-field" placeholder="e.g., https://jobs.health.nsw.gov.au/...">${data.sourceUrl || ''}</span></div>
-                <div class="key-info-item"><label>Contact Person</label><span id="detail-contact-person" contenteditable="true" class="editable-field" placeholder="e.g., Dr. Jane Smith">${data.contactPerson || ''}</span></div>
-            </div>
-        </section>`;
-}
-
-function renderDetailContentPanes(data) {
+    const data = jobData || { status: 'Identified', jobTitle: '', hospital: '', state: 'NSW', applicationType: 'Direct Hospital', roleLevel: 'RMO' };
+    
+    // Options for selects
+    const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'];
+    const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI'];
+    const roleOptions = ['Intern', 'RMO', 'Registrar', 'Fellow', 'Consultant'];
     const statusOptions = ['Identified', 'Preparing Application', 'Applied', 'Interview Offered', 'Offer Received', 'Unsuccessful', 'Closed', 'Offer Declined'];
-    const criteria = data.jobSelectionCriteria || [];
-    const documents = data.documents || [];
-    const officialDocs = documents.filter(d => d.type === 'official');
-    const myDocs = documents.filter(d => d.type !== 'official');
-    return `
-        <div id="overview-panel" class="detail-panel">
-            <h3>Tracker Overview</h3>
-            <div class="form-grid"><div class="form-group"><label for="detail-status">Application Status</label><select id="detail-status">${utils.createSelectOptions(statusOptions, data.status)}</select></div><div class="form-group"><label for="detail-date-applied">Date Applied</label><input type="date" id="detail-date-applied" value="${data.dateApplied ? utils.formatDateForInput(data.dateApplied) : ''}"></div><div class="form-group"><label for="detail-closing-date">Closing Date</label><input type="datetime-local" id="detail-closing-date" value="${data.closingDate ? utils.formatDateForInput(data.closingDate, true) : ''}"></div><div class="form-group"><label for="detail-follow-up-date">Follow-Up Date</label><input type="date" id="detail-follow-up-date" value="${data.followUpDate ? utils.formatDateForInput(data.followUpDate) : ''}"></div><div class="form-group"><label for="detail-interview-date">Interview Date</label><input type="date" id="detail-interview-date" value="${data.interviewDate ? utils.formatDateForInput(data.interviewDate) : ''}"></div><div class="form-group checkbox-group"><input type="checkbox" id="detail-follow-up-complete" ${data.followUpComplete ? 'checked' : ''}><label for="detail-follow-up-complete">Follow-up Complete</label></div><div class="form-group full-span"><label for="detail-tracker-notes">Your Tracker Notes</label><textarea id="detail-tracker-notes" rows="6" placeholder="Log calls, emails, and other updates here...">${data.jobTrackerNotes || ''}</textarea></div></div>
+
+    page.innerHTML = `
+        <header class="detail-summary-header">
+            <div>
+                <h2 id="detail-jobTitle" contenteditable="true" placeholder="Enter Job Title*">${data.jobTitle}</h2>
+                <p id="detail-hospital" contenteditable="true" placeholder="Enter hospital name">@ ${data.hospital}</p>
+            </div>
+            <div class="summary-status-container">
+                <select id="detail-status" class="tag status-${utils.kebabCase(data.status)}">${utils.createSelectOptions(statusOptions, data.status)}</select>
+            </div>
+        </header>
+
+        <div class="detail-workspace">
+            <main class="detail-content-pane">
+                <section id="core-info-section" class="detail-section">
+                    <h3>Core Job Information & Logistics</h3>
+                    <div class="form-grid">
+                        <div class="form-group"><label for="detail-healthNetwork">Health Network / LHD</label><input type="text" id="detail-healthNetwork" value="${data.healthNetwork || ''}" placeholder="e.g., SESLHD"></div>
+                        <div class="form-group"><label for="detail-state">State/Territory*</label><select id="detail-state">${utils.createSelectOptions(stateOptions, data.state)}</select></div>
+                        <div class="form-group"><label for="detail-location">Location (City/Region)</label><input type="text" id="detail-location" value="${data.location || ''}" placeholder="e.g., Sydney"></div>
+                        <div class="form-group"><label for="detail-applicationType">Application Type</label><select id="detail-applicationType">${utils.createSelectOptions(typeOptions, data.applicationType)}</select></div>
+                        <div class="form-group"><label for="detail-sourceUrl">Application Source URL</label><input type="url" id="detail-sourceUrl" value="${data.sourceUrl || ''}" placeholder="https://jobs.health.nsw.gov.au/..."></div>
+                        <div class="form-group"><label for="detail-jobId">Job ID / Requisition Code</label><input type="text" id="detail-jobId" value="${data.jobId || ''}" placeholder="e.g., REQ123456"></div>
+                        <div class="form-group"><label for="detail-closingDate">Closing Date & Time</label><input type="datetime-local" id="detail-closingDate" value="${data.closingDate ? utils.formatDateForInput(data.closingDate, true) : ''}"></div>
+                        <div class="form-group"><label for="detail-commencementDate">Commencement Date</label><input type="date" id="detail-commencementDate" value="${data.commencementDate ? utils.formatDateForInput(data.commencementDate) : ''}"></div>
+                    </div>
+                </section>
+
+                <section id="role-details-section" class="detail-section">
+                    <h3>Role Details & Requirements</h3>
+                    <div class="form-grid">
+                        <div class="form-group"><label for="detail-specialty">Medical Specialty / Department</label><input type="text" id="detail-specialty" value="${data.specialty || ''}" placeholder="e.g., Emergency Medicine"></div>
+                        <div class="form-group"><label for="detail-roleLevel">Role Level</label><select id="detail-roleLevel">${utils.createSelectOptions(roleOptions, data.roleLevel)}</select></div>
+                        <div class="form-group"><label for="detail-salary">Salary / Remuneration</label><input type="text" id="detail-salary" value="${data.salary || ''}" placeholder="e.g., $95,000 - $110,000"></div>
+                        <div class="form-group"><label for="detail-experienceLevel">Experience Level Required</label><input type="text" id="detail-experienceLevel" value="${data.experienceLevel || ''}" placeholder="e.g., PGY3+"></div>
+                    </div>
+                </section>
+
+                <section id="contact-person-section" class="detail-section">
+                    <h3>Contact Person</h3>
+                    <div class="form-grid">
+                        <div class="form-group"><label for="detail-contactPerson">Name</label><input type="text" id="detail-contactPerson" value="${data.contactPerson || ''}" placeholder="Dr. Jane Smith"></div>
+                        <div class="form-group"><label for="detail-contactEmail">Email</label><input type="email" id="detail-contactEmail" value="${data.contactEmail || ''}" placeholder="jane.smith@health.gov.au"></div>
+                        <div class="form-group"><label for="detail-contactPhone">Phone</label><input type="tel" id="detail-contactPhone" value="${data.contactPhone || ''}" placeholder="02 9123 4567"></div>
+                    </div>
+                </section>
+                 <div class="form-group full-span"><label for="detail-tracker-notes">Your Tracker Notes</label><textarea id="detail-tracker-notes" rows="6" placeholder="Log calls, emails, and other updates here...">${data.jobTrackerNotes || ''}</textarea></div>
+            </main>
         </div>
-        <div id="workbench-panel" class="detail-panel hidden">
-            <div class="toolbar"><h3>Selection Criteria Workbench</h3><button id="add-criterion-btn" class="primary-action-btn"><i class="fa-solid fa-plus"></i> Add Criterion</button></div>
-            <div id="selection-criteria-workbench">${criteria.map((item, index) => `<div class="workbench-item" data-index="${index}"><div class="workbench-header"><div class="workbench-criterion" contenteditable="true">${item.criterion}</div><button class="icon-btn remove-criterion-btn" title="Remove Criterion">×</button></div><textarea class="workbench-textarea" rows="6" placeholder="Craft your response here...">${item.response || ''}</textarea><div class="workbench-actions"><button class="secondary-btn link-experience-btn"><i class="fa-solid fa-link"></i> Link Experience</button></div></div>`).join('')}</div>
-        </div>
-        <div id="documents-panel" class="detail-panel hidden">
-            <h3>Attached Documents</h3>
-            <div class="documents-container"><div class="document-column"><h4>Official Documents</h4><ul id="official-docs-list" class="file-list">${officialDocs.map(doc => `<li>${doc.name} <button class="icon-btn remove-doc-btn" data-doc-name="${doc.name}">×</button></li>`).join('')}</ul></div><div class="document-column"><h4>My Submitted Documents</h4><ul id="my-docs-list" class="file-list">${myDocs.map(doc => `<li>${doc.name} <button class="icon-btn remove-doc-btn" data-doc-name="${doc.name}">×</button></li>`).join('')}</ul><button id="attach-from-repo-btn" class="secondary-btn" style="width: 100%; margin-top: 10px;"><i class="fa-solid fa-paperclip"></i> Attach from Repository</button></div></div>
-        </div>
+
+        <footer class="detail-footer">
+            <button id="delete-app-btn" class="danger-btn ${isNew ? 'hidden' : ''}">Delete Application</button>
+            <div>
+                <button id="duplicate-app-btn" class="secondary-btn ${isNew ? 'hidden' : ''}">Duplicate</button>
+                <button id="save-app-btn" class="primary-action-btn">${isNew ? 'Create Application' : 'Save Changes'}</button>
+            </div>
+        </footer>
     `;
+    
+    // Add event listener to dynamically update the status tag color
+    const statusSelect = page.querySelector('#detail-status');
+    if(statusSelect) {
+        statusSelect.addEventListener('change', (e) => {
+            e.target.className = `tag status-${utils.kebabCase(e.target.value)}`;
+        });
+    }
 }
 
 export function getApplicationFormData() {
     const getEl = (id) => document.getElementById(id);
     const getText = (id) => getEl(id)?.textContent.trim() || '';
     const getValue = (id) => getEl(id)?.value || '';
-    const getChecked = (id) => getEl(id)?.checked || false;
     const getDate = (id) => getValue(id) ? new Date(getValue(id)) : null;
-    const criteria = Array.from(document.querySelectorAll('.workbench-item')).map(item => ({ criterion: item.querySelector('.workbench-criterion').textContent.trim(), response: item.querySelector('.workbench-textarea').value }));
+
     return {
-        jobTitle: getText('detail-summary-title'), hospital: getText('detail-summary-hospital').replace('@ ', ''), jobId: getText('detail-job-id'), location: getText('detail-location'), specialty: getText('detail-specialty'), contactPerson: getText('detail-contact-person'), sourceUrl: getText('detail-source-url'),
-        status: getValue('detail-status'), dateApplied: getDate('detail-date-applied'), closingDate: getDate('detail-closing-date'), followUpDate: getDate('detail-follow-up-date'), interviewDate: getDate('detail-interview-date'), followUpComplete: getChecked('detail-follow-up-complete'), jobTrackerNotes: getValue('detail-tracker-notes'),
-        jobSelectionCriteria: criteria,
+        jobTitle: getText('detail-jobTitle'),
+        hospital: getText('detail-hospital').replace('@ ', ''),
+        status: getValue('detail-status'),
+        healthNetwork: getValue('detail-healthNetwork'),
+        state: getValue('detail-state'),
+        location: getValue('detail-location'),
+        applicationType: getValue('detail-applicationType'),
+        sourceUrl: getValue('detail-sourceUrl'),
+        jobId: getValue('detail-jobId'),
+        closingDate: getDate('detail-closingDate'),
+        commencementDate: getDate('detail-commencementDate'),
+        specialty: getValue('detail-specialty'),
+        roleLevel: getValue('detail-roleLevel'),
+        salary: getValue('detail-salary'),
+        experienceLevel: getValue('detail-experienceLevel'),
+        contactPerson: getValue('detail-contactPerson'),
+        contactEmail: getValue('detail-contactEmail'),
+        contactPhone: getValue('detail-contactPhone'),
+        jobTrackerNotes: getValue('detail-tracker-notes'),
     };
 }
+
 
 // --- EXPERIENCE BOOK & DOCUMENTS ---
 
 export function renderExperienceBook(experiences, filters) {
-    const page = document.getElementById('experienceBook');
-    page.innerHTML = '';
-    const layout = document.createElement('div');
-    layout.className = 'experience-book-layout';
-    layout.innerHTML = `
-        <aside id="experience-sidebar">
-            <div class="sidebar-block"><h3>Categories</h3><ul id="experience-categories-list" class="category-list"></ul></div>
-        </aside>
-        <div class="experience-main-content">
-            <div class="toolbar"><h2 class="page-title">Experience Book</h2><input type="search" id="experience-search-bar" placeholder="Search experiences..." value="${filters.search || ''}"></div>
-            <div id="experience-tag-filters" class="tag-filter-bar"></div>
-            <div id="experience-cards-container" class="experience-cards-container"></div>
-        </div>
-        <aside id="experience-inspector" class="inspector-panel collapsed"></aside>
-    `;
+    const container = document.getElementById('experience-cards-container');
+    const tagsContainer = document.getElementById('experience-tag-filters');
+    if (!container || !tagsContainer) return;
+    
     const allTags = [...new Set(experiences.flatMap(exp => exp.tags || []))].sort();
-    layout.querySelector('#experience-tag-filters').innerHTML = renderTagFilters(allTags, filters.tags);
-    layout.querySelector('#experience-cards-container').innerHTML = renderExperienceCards(experiences);
-    page.appendChild(layout);
+    tagsContainer.innerHTML = renderTagFilters(allTags, filters.tags);
+    container.innerHTML = renderExperienceCards(experiences);
 }
 
 function renderTagFilters(allTags, activeTags = []) {
@@ -290,7 +435,7 @@ function renderTagFilters(allTags, activeTags = []) {
 
 function renderExperienceCards(experiences) {
     if (experiences.length === 0) return `<div class="empty-state-container"><i class="fa-solid fa-book-bookmark"></i><h3>No Experiences Found</h3><p>Click the '+' button to add your first professional experience.</p></div>`;
-    return experiences.map(exp => `<div class="experience-card" data-experience-id="${exp.id}"><button class="icon-btn favorite-toggle ${exp.isFavorite ? 'favorited' : ''}" title="Toggle Favorite"><i class="fa-solid fa-star"></i></button><div class="card-content-wrapper"><h4>${exp.title || 'Untitled Experience'}</h4><div class="experience-card-tags">${(exp.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}</div><p class="experience-card-paragraph">${utils.truncate(exp.paragraph || '', 150)}</p><div class="card-meta"><span title="Times this experience has been linked to an application"><i class="fa-solid fa-paperclip"></i> ${exp.linkedApplications?.length || 0}</span></div></div></div>`).join('');
+    return experiences.map(exp => `<div class="experience-card" data-experience-id="${exp.id}"><div class="card-content-wrapper"><h4>${exp.title || 'Untitled Experience'}</h4><div class="experience-card-tags">${(exp.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}</div><p class="experience-card-paragraph">${utils.truncate(exp.paragraph || '', 150)}</p></div></div>`).join('');
 }
 
 export function renderExperienceInspector(exp) {
@@ -298,7 +443,7 @@ export function renderExperienceInspector(exp) {
     if (!inspector) return;
     const isNew = !exp || !exp.id;
     const data = exp || { title: '', paragraph: '', tags: [] };
-    inspector.innerHTML = `<div class="inspector-header"><h3>${isNew ? 'New Experience' : 'Edit Experience'}</h3><button id="close-experience-inspector-btn" class="icon-btn" aria-label="Close">×</button></div><div class="inspector-content"><div class="form-group"><label for="exp-title">Title (Question)</label><input type="text" id="exp-title" value="${data.title}"></div><div class="form-group"><label for="exp-paragraph">Response (Answer)</label><textarea id="exp-paragraph" rows="10">${data.paragraph}</textarea></div><div class="form-group"><label for="exp-tags">Tags (comma-separated)</label><input type="text" id="exp-tags" value="${(data.tags || []).join(', ')}"></div><div class="form-group ${isNew ? 'hidden' : ''}"><h4>Linked Applications</h4><ul id="exp-linked-apps-list" class="linked-items-list">${(data.linkedApplications || []).map(app => `<li>${app.jobTitle}</li>`).join('') || '<li>Not linked yet.</li>'}</ul></div></div><div class="inspector-footer"><button id="delete-exp-btn" class="danger-btn ${isNew ? 'hidden' : ''}">Delete</button><button id="save-exp-btn" class="primary-action-btn">${isNew ? 'Create' : 'Save'}</button></div>`;
+    inspector.innerHTML = `<div class="inspector-header"><h3>${isNew ? 'New Experience' : 'Edit Experience'}</h3><button id="close-experience-inspector-btn" class="icon-btn" aria-label="Close">×</button></div><div class="inspector-content"><div class="form-group"><label for="exp-title">Title (Question)</label><input type="text" id="exp-title" value="${data.title || ''}"></div><div class="form-group"><label for="exp-paragraph">Response (Answer)</label><textarea id="exp-paragraph" rows="10">${data.paragraph || ''}</textarea></div><div class="form-group"><label for="exp-tags">Tags (comma-separated)</label><input type="text" id="exp-tags" value="${(data.tags || []).join(', ')}"></div></div><div class="inspector-footer"><button id="delete-exp-btn" class="danger-btn ${isNew ? 'hidden' : ''}">Delete</button><button id="save-exp-btn" class="primary-action-btn">${isNew ? 'Create' : 'Save'}</button></div>`;
     inspector.classList.remove('collapsed');
 }
 
@@ -312,13 +457,20 @@ export function closeExperienceInspector() {
 
 export function renderDocumentsPage(documents, folders = [], viewMode = 'list') {
     const page = document.getElementById('documents');
-    page.innerHTML = '';
-    page.innerHTML = `<div class="documents-layout"><aside id="document-sidebar"><h3>Folders</h3><ul id="document-folders-list" class="category-list"><li class="active"><a href="#" data-folder-id="all">All Files</a></li>${folders.map(f => `<li><a href="#" data-folder-id="${f.id}">${f.name}</a></li>`).join('')}</ul><button id="add-folder-btn" class="secondary-btn" style="width: 100%; margin-top: 15px;"><i class="fa-solid fa-folder-plus"></i> New Folder</button></aside><div class="document-main-content"><div class="toolbar"><h2 class="page-title">My Documents</h2><div class="view-switcher"><button id="doc-list-view-btn" class="view-btn ${viewMode === 'list' ? 'active' : ''}" title="List View"><i class="fa-solid fa-list"></i></button><button id="doc-grid-view-btn" class="view-btn ${viewMode === 'grid' ? 'active' : ''}" title="Grid View"><i class="fa-solid fa-grip"></i></button></div></div><div id="upload-dropzone" class="upload-dropzone"><i class="fa-solid fa-cloud-arrow-up"></i><p>Drag & drop files here, or click to browse</p></div><div id="document-list-container" class="${viewMode}-view">${renderDocumentItems(documents, viewMode)}</div></div><aside id="document-inspector" class="inspector-panel collapsed"></aside></div>`;
+    if (!page) return; // Can't render if the page isn't active
+    const container = document.getElementById('document-list-container');
+    
+    document.getElementById('doc-list-view-btn').classList.toggle('active', viewMode === 'list');
+    document.getElementById('doc-grid-view-btn').classList.toggle('active', viewMode === 'grid');
+    container.className = `${viewMode}-view`;
+    container.innerHTML = renderDocumentItems(documents, viewMode);
 }
 
 function renderDocumentItems(documents, viewMode) {
     if (documents.length === 0) return `<div class="empty-state-container"><i class="fa-solid fa-folder-open"></i><h3>Repository is Empty</h3><p>Upload your first document by dragging it onto the zone above.</p></div>`;
-    if (viewMode === 'grid') return documents.map(doc => `<div class="doc-grid-item" data-doc-id="${doc.id}"><div class="doc-grid-icon">${utils.getFileIcon(doc.type, true)}</div><div class="doc-grid-name" title="${doc.name}">${doc.name}</div></div>`).join('');
+    if (viewMode === 'grid') {
+        return documents.map(doc => `<div class="doc-grid-item" data-doc-id="${doc.id}"><div class="doc-grid-icon">${utils.getFileIcon(doc.type, true)}</div><div class="doc-grid-name" title="${doc.name}">${doc.name}</div></div>`).join('');
+    }
     return `<div class="table-container"><table><thead><tr><th>Name</th><th>Date Uploaded</th><th>Size</th><th class="actions-col"></th></tr></thead><tbody>${documents.map(doc => `<tr class="interactive-row" data-doc-id="${doc.id}"><td><i class="${utils.getFileIcon(doc.type)}"></i> ${doc.name}</td><td>${utils.formatDate(doc.uploadedAt)}</td><td>${utils.formatFileSize(doc.size)}</td><td class="actions-col"><a href="${doc.url}" target="_blank" class="icon-btn" title="Download"><i class="fa-solid fa-download"></i></a></td></tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -328,8 +480,8 @@ export function renderDocumentInspector(doc) {
     if (!doc) { inspector.classList.add('collapsed'); return; }
     const size = utils.formatFileSize(doc.size);
     const date = utils.formatDate(doc.uploadedAt, { month: 'long', day: 'numeric', year: 'numeric' });
-    const icon = utils.getFileIcon(doc.type);
-    inspector.innerHTML = `<div class="inspector-header"><h3>Document Details</h3><button id="close-document-inspector-btn" class="icon-btn" aria-label="Close">×</button></div><div class="inspector-content"><div id="doc-preview" class="doc-preview"><i class="${icon}"></i></div><h4 id="doc-inspector-name">${doc.name}</h4><div id="doc-inspector-details" class="doc-details-grid"><span><strong>Date Uploaded:</strong> ${date}</span><span><strong>File Size:</strong> ${size}</span></div><div class="form-group"><h4>Linked Applications</h4><ul id="doc-linked-apps-list" class="linked-items-list">${(doc.linkedApplications || []).map(app => `<li>${app.jobTitle}</li>`).join('') || '<li>Not linked yet.</li>'}</ul></div><div class="form-group"><h4>Version History</h4><ul id="doc-version-history-list" class="linked-items-list"><li>Version 1 (Current) - ${date}</li></ul></div></div><div class="inspector-footer"><button id="delete-doc-btn" class="danger-btn">Delete</button><button id="rename-doc-btn" class="secondary-btn">Rename</button></div>`;
+    const icon = utils.getFileIcon(doc.type, true); // Get large icon
+    inspector.innerHTML = `<div class="inspector-header"><h3>Document Details</h3><button id="close-document-inspector-btn" class="icon-btn" aria-label="Close">×</button></div><div class="inspector-content"><div class="doc-preview">${icon}</div><h4 id="doc-inspector-name">${doc.name}</h4><div class="doc-details-grid"><span><strong>Date Uploaded:</strong> ${date}</span><span><strong>File Size:</strong> ${size}</span></div></div><div class="inspector-footer"><button id="delete-doc-btn" class="danger-btn">Delete</button><button id="rename-doc-btn" class="secondary-btn">Rename</button></div>`;
     inspector.classList.remove('collapsed');
 }
 
@@ -345,9 +497,9 @@ export function renderSettingsPage(profileData) {
     document.getElementById('security-section').innerHTML = `<h3>Security</h3><div class="form-group"><label for="profile-new-password">New Password</label><input type="password" id="profile-new-password" placeholder="Must be at least 6 characters"></div><div class="form-group"><label for="profile-confirm-password">Confirm New Password</label><input type="password" id="profile-confirm-password"></div><button id="update-password-btn" class="primary-action-btn">Update Password</button>`;
     document.getElementById('dataManagement-section').innerHTML = `<h3>Data Management</h3><p>Export your data regularly as a backup or import data from a previous session.</p><div class="settings-actions"><button id="export-data-btn" class="primary-action-btn"><i class="fa-solid fa-file-export"></i> Export All</button><button id="import-data-btn" class="secondary-btn"><i class="fa-solid fa-file-import"></i> Import</button></div><hr><p>To add multiple jobs at once, upload a JSON file.</p><div class="settings-actions"><button id="bulk-add-btn" class="primary-action-btn"><i class="fa-solid fa-file-upload"></i> Bulk Add Jobs</button></div>`;
     const prefs = profileData.preferences || {};
-    const timezones = {'Asia/Kolkata': 'IST', 'UTC': 'UTC', 'Australia/Sydney': 'AEST/AEDT', 'Australia/Perth': 'AWST'};
+    const timezones = {'Asia/Kolkata': 'IST (Asia/Kolkata)', 'UTC': 'UTC', 'Australia/Sydney': 'AEST/AEDT (Australia/Sydney)', 'Australia/Perth': 'AWST (Australia/Perth)'};
     const defaultTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    document.getElementById('preferences-section').innerHTML = `<h3>Preferences</h3><div class="form-group"><label>Appearance</label><div id="theme-selector" class="segmented-control"><button data-theme="light" class="segment-btn">Light</button><button data-theme="dark" class="segment-btn">Dark</button><button data-theme="system" class="segment-btn active">System</button></div></div><div class="form-group"><label for="timezone-selector">Your Timezone</label><select id="timezone-selector">${utils.createSelectOptions(timezones, prefs.timezone || defaultTz)}</select><p class="microcopy">Sets the default display time for dates.</p></div><button id="save-preferences-btn" class="primary-action-btn">Save Preferences</button>`;
+    document.getElementById('preferences-section').innerHTML = `<h3>Preferences</h3><div class="form-group"><label>Appearance</label><div id="theme-selector" class="segmented-control"><button data-theme="light" class="segment-btn">Light</button><button data-theme="dark" class="segment-btn">Dark</button><button data-theme="system" class="segment-btn active">System</button></div></div><div class="form-group"><label for="timezone-selector">Your Timezone</label><select id="timezone-selector">${utils.createSelectOptions(timezones, prefs.timezone || defaultTz)}</select><p class="microcopy">Sets the default display time for dates and reminders.</p></div>`;
     document.getElementById('account-section').innerHTML = `<div class="danger-zone"><h3>Danger Zone</h3><p>This action is permanent and cannot be undone.</p><button id="delete-account-btn" class="danger-btn">Delete Account</button></div>`;
     applyTheme(prefs.theme || 'system');
     setActiveSettingsSection('profile');
