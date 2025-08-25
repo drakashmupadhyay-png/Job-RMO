@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - ui.js (v2.8 - Robustness Fix)
+// RMO Job-Flow - ui.js (v2.9 - Filtering Logic)
 // Description: The "dumb" renderer. Takes data from main.js and is
 // solely responsible for all DOM manipulation and rendering.
 // ---
@@ -9,14 +9,12 @@
 import * as utils from './utils.js';
 
 // --- SELECTORS (Cached for performance) ---
-// This will still be used for elements we are confident are stable.
 let SELECTORS = {}; 
 
 let calendarInstance = null; // To hold the FullCalendar instance
 
 /**
  * Caches all necessary DOM element selectors.
- * MUST be called after DOMContentLoaded.
  */
 export function init() {
     SELECTORS = {
@@ -30,6 +28,98 @@ export function init() {
     };
     console.log("UI Selectors Initialized.");
 }
+
+// --- FILTERING LOGIC ---
+
+/**
+ * Filters and sorts the jobs for the dashboard view.
+ * @param {Array} jobs The array of all job objects.
+ * @param {object} filters The filter object from appState.
+ * @returns {Array} The filtered and sorted array of jobs.
+ */
+function applyDashboardFilters(jobs, filters) {
+    const searchTerm = filters.search.toLowerCase();
+    let filteredJobs = [...jobs];
+
+    // 1. Filter by search term (checks multiple fields)
+    if (searchTerm) {
+        filteredJobs = filteredJobs.filter(job => 
+            (job.jobTitle && job.jobTitle.toLowerCase().includes(searchTerm)) ||
+            (job.hospital && job.hospital.toLowerCase().includes(searchTerm)) ||
+            (job.location && job.location.toLowerCase().includes(searchTerm)) ||
+            (job.specialty && job.specialty.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    // 2. Filter by state
+    if (filters.state !== 'all') {
+        filteredJobs = filteredJobs.filter(job => job.state === filters.state);
+    }
+
+    // 3. Filter by type
+    if (filters.type !== 'all') {
+        filteredJobs = filteredJobs.filter(job => job.applicationType === filters.type);
+    }
+
+    // 4. Filter by status
+    if (filters.status !== 'all') {
+        filteredJobs = filteredJobs.filter(job => job.status === filters.status);
+    }
+
+    // 5. Apply sorting
+    switch (filters.sortBy) {
+        case 'closing-asc':
+            filteredJobs.sort((a, b) => {
+                const dateA = a.closingDate ? a.closingDate.getTime() : Infinity;
+                const dateB = b.closingDate ? b.closingDate.getTime() : Infinity;
+                return dateA - dateB;
+            });
+            break;
+        case 'follow-up-asc':
+            filteredJobs.sort((a, b) => {
+                const dateA = a.followUpDate ? a.followUpDate.getTime() : Infinity;
+                const dateB = b.followUpDate ? b.followUpDate.getTime() : Infinity;
+                return dateA - dateB;
+            });
+            break;
+        case 'default':
+        default:
+            // The default is createdAt descending, which is handled by the API query.
+            // No extra sorting needed unless the original order was lost.
+            break;
+    }
+
+    return filteredJobs;
+}
+
+/**
+ * Filters experiences by search term and tags.
+ * @param {Array} experiences The array of all experience objects.
+ * @param {object} filters The filter object from appState.
+ * @returns {Array} The filtered array of experiences.
+ */
+function applyExperienceBookFilters(experiences, filters) {
+    const searchTerm = filters.search.toLowerCase();
+    let filteredExperiences = [...experiences];
+
+    // 1. Filter by search term
+    if (searchTerm) {
+        filteredExperiences = filteredExperiences.filter(exp => 
+            (exp.title && exp.title.toLowerCase().includes(searchTerm)) ||
+            (exp.paragraph && exp.paragraph.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    // 2. Filter by tags
+    if (filters.tags.length > 0) {
+        filteredExperiences = filteredExperiences.filter(exp => 
+            exp.tags && exp.tags.some(tag => filters.tags.includes(tag))
+        );
+    }
+
+    return filteredExperiences;
+}
+
 
 // --- GLOBAL UI MANIPULATION ---
 
@@ -67,7 +157,6 @@ export function renderUserInfo(profile) {
 }
 
 export function toggleUserDropdown() {
-    // FIX: Directly query the element to prevent stale references.
     const userDropdown = document.getElementById('user-dropdown');
     if (userDropdown) userDropdown.classList.toggle('hidden');
 }
@@ -91,8 +180,8 @@ export function renderRemindersDropdown(urgentJobs) {
         content += '<div class="reminders-empty">No urgent reminders.</div>';
     } else {
         content += urgentJobs.map(job => {
-            const closingToday = job.closingDate && job.closingDate <= new Date();
-            const followUpDue = job.followUpDate && !job.followUpComplete && job.followUpDate <= new Date();
+            const closingToday = job.closingDate && new Date(job.closingDate).toDateString() === new Date().toDateString();
+            const followUpDue = job.followUpDate && !job.followUpComplete && new Date(job.followUpDate).toDateString() === new Date().toDateString();
             let reason = '';
             if (closingToday) reason = 'Closes today';
             else if (followUpDue) reason = 'Follow-up due today';
@@ -137,7 +226,6 @@ export function toggleMobileSidebar(shouldOpen) {
 }
 
 export function setActivePage(pageId) {
-    // Robustly hide all pages first by querying the entire document.
     document.querySelectorAll('.page-content').forEach(p => {
         p.classList.add('hidden');
     });
@@ -153,7 +241,6 @@ export function setActivePage(pageId) {
         if (dashboard) dashboard.classList.remove('hidden');
     }
     
-    // FIX: Directly query the sidebar to prevent stale references.
     const appSidebar = document.getElementById('app-sidebar');
     if (appSidebar) {
         const pageToHighlight = pageId.split('/')[0];
@@ -164,7 +251,6 @@ export function setActivePage(pageId) {
 }
 
 export function updateFAB(pageId) {
-    // FIX: Directly query the FAB to prevent stale references.
     const fab = document.getElementById('fab');
     if (!fab) return;
     
@@ -239,7 +325,7 @@ export function renderDashboard(jobs, filters, viewMode = 'table') {
     if (viewMode === 'calendar') {
         tableView.classList.add('hidden');
         calendarView.classList.remove('hidden');
-        renderCalendarView(jobs);
+        renderCalendarView(jobs); // Calendar view doesn't use table filters
     } else {
         calendarView.classList.add('hidden');
         tableView.classList.remove('hidden');
@@ -251,11 +337,11 @@ function renderTableView(jobs, filters) {
     const jobsTableBody = document.getElementById('jobs-table-body');
     if (!jobsTableBody) return;
 
-    // Filtering logic will be added in the next step
-    const filteredJobs = jobs; 
+    // APPLY THE FILTERS
+    const filteredJobs = applyDashboardFilters(jobs, filters); 
 
     if (filteredJobs.length === 0) {
-        jobsTableBody.innerHTML = `<tr><td colspan="7" class="empty-state-cell"><div class="empty-state-container"><i class="fa-solid fa-table-list"></i><h3>No applications found.</h3><p>Click the '+' button to add one!</p></div></td></tr>`;
+        jobsTableBody.innerHTML = `<tr><td colspan="7" class="empty-state-cell"><div class="empty-state-container"><i class="fa-solid fa-table-list"></i><h3>No applications match your filters.</h3><p>Try clearing the filters to see all your applications.</p></div></td></tr>`;
     } else {
         jobsTableBody.innerHTML = filteredJobs.map(job => renderJobRow(job)).join('');
     }
@@ -311,7 +397,7 @@ function renderCalendarView(jobs) {
         },
         events: events,
         eventClick: function(info) {
-            info.jsEvent.preventDefault(); // don't let the browser navigate
+            info.jsEvent.preventDefault();
             window.location.hash = `#applicationDetail/${info.event.id}`;
         }
     });
@@ -345,7 +431,7 @@ function renderDashboardFilters(filters) {
     const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'];
     const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI'];
     const statusOptions = ['Identified', 'Preparing Application', 'Applied', 'Interview Offered', 'Offer Received', 'Unsuccessful', 'Closed', 'Offer Declined'];
-    const sortByOptions = { 'default': 'Recently Added', 'closing-asc': 'Closing Soon', 'follow-up-asc': 'Follow-up Soon', 'closed-desc': 'Recently Closed' };
+    const sortByOptions = { 'default': 'Recently Added', 'closing-asc': 'Closing Soon', 'follow-up-asc': 'Follow-up Soon' };
     document.getElementById('state-filter').innerHTML = utils.createSelectOptions(stateOptions, filters.state, {all: 'All States'});
     document.getElementById('type-filter').innerHTML = utils.createSelectOptions(typeOptions, filters.type, {all: 'All Types'});
     document.getElementById('status-filter').innerHTML = utils.createSelectOptions(statusOptions, filters.status, {all: 'All Statuses'});
@@ -357,7 +443,7 @@ export function resetDashboardFilters() {
     renderDashboardFilters({ state: 'all', type: 'all', status: 'all', search: '', sortBy: 'default' });
 }
 
-// --- APPLICATION DETAIL PAGE RENDERING (REWRITTEN) ---
+// --- APPLICATION DETAIL PAGE RENDERING ---
 
 export function renderApplicationDetailPage(jobData) {
     const page = document.getElementById('applicationDetailPage');
@@ -365,7 +451,6 @@ export function renderApplicationDetailPage(jobData) {
     const isNew = !jobData || !jobData.id || jobData.id === 'new-from-duplicate';
     const data = jobData || { status: 'Identified', jobTitle: '', hospital: '', state: 'NSW', applicationType: 'Direct Hospital', roleLevel: 'RMO' };
     
-    // Options for selects
     const stateOptions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'];
     const typeOptions = ['Statewide Campaign', 'Direct Hospital', 'Proactive EOI'];
     const roleOptions = ['Intern', 'RMO', 'Registrar', 'Fellow', 'Consultant'];
@@ -429,7 +514,6 @@ export function renderApplicationDetailPage(jobData) {
         </footer>
     `;
     
-    // Add event listener to dynamically update the status tag color
     const statusSelect = page.querySelector('#detail-status');
     if(statusSelect) {
         statusSelect.addEventListener('change', (e) => {
@@ -475,9 +559,12 @@ export function renderExperienceBook(experiences, filters) {
     const tagsContainer = document.getElementById('experience-tag-filters');
     if (!container || !tagsContainer) return;
     
+    // APPLY THE FILTERS
+    const filteredExperiences = applyExperienceBookFilters(experiences, filters);
+
     const allTags = [...new Set(experiences.flatMap(exp => exp.tags || []))].sort();
     tagsContainer.innerHTML = renderTagFilters(allTags, filters.tags);
-    container.innerHTML = renderExperienceCards(experiences);
+    container.innerHTML = renderExperienceCards(filteredExperiences);
 }
 
 function renderTagFilters(allTags, activeTags = []) {
@@ -487,7 +574,7 @@ function renderTagFilters(allTags, activeTags = []) {
 }
 
 function renderExperienceCards(experiences) {
-    if (experiences.length === 0) return `<div class="empty-state-container"><i class="fa-solid fa-book-bookmark"></i><h3>No Experiences Found</h3><p>Click the '+' button to add your first professional experience.</p></div>`;
+    if (experiences.length === 0) return `<div class="empty-state-container"><i class="fa-solid fa-book-bookmark"></i><h3>No Experiences Found</h3><p>Click the '+' button to add your first professional experience, or try a different filter.</p></div>`;
     return experiences.map(exp => `<div class="experience-card" data-experience-id="${exp.id}"><div class="card-content-wrapper"><h4>${exp.title || 'Untitled Experience'}</h4><div class="experience-card-tags">${(exp.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}</div><p class="experience-card-paragraph">${utils.truncate(exp.paragraph || '', 150)}</p></div></div>`).join('');
 }
 
@@ -510,7 +597,7 @@ export function closeExperienceInspector() {
 
 export function renderDocumentsPage(documents, folders = [], viewMode = 'list') {
     const page = document.getElementById('documents');
-    if (!page) return; // Can't render if the page isn't active
+    if (!page) return;
     const container = document.getElementById('document-list-container');
     
     document.getElementById('doc-list-view-btn').classList.toggle('active', viewMode === 'list');
@@ -532,8 +619,8 @@ export function renderDocumentInspector(doc) {
     if (!inspector) return;
     if (!doc) { inspector.classList.add('collapsed'); return; }
     const size = utils.formatFileSize(doc.size);
-    const date = utils.formatDate(doc.uploadedAt, { month: 'long', day: 'numeric', year: 'numeric' });
-    const icon = utils.getFileIcon(doc.type, true); // Get large icon
+    const date = doc.uploadedAt ? utils.formatDate(doc.uploadedAt, { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A';
+    const icon = utils.getFileIcon(doc.type, true);
     inspector.innerHTML = `<div class="inspector-header"><h3>Document Details</h3><button id="close-document-inspector-btn" class="icon-btn" aria-label="Close">×</button></div><div class="inspector-content"><div class="doc-preview">${icon}</div><h4 id="doc-inspector-name">${doc.name}</h4><div class="doc-details-grid"><span><strong>Date Uploaded:</strong> ${date}</span><span><strong>File Size:</strong> ${size}</span></div></div><div class="inspector-footer"><button id="delete-doc-btn" class="danger-btn">Delete</button><button id="rename-doc-btn" class="secondary-btn">Rename</button></div>`;
     inspector.classList.remove('collapsed');
 }
