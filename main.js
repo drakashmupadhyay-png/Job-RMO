@@ -453,31 +453,79 @@ async function handleUpdatePassword() {
     } catch(err) { ui.showToast(`Error: ${err.message}. Re-login may be required.`, "error"); }
 }
 
+// --- In main.js ---
+
 async function handleProfileImageUpload(e) {
     const file = e.target.files[0];
-    if (!file) return;
+    
+    // --- DEBUGGING START ---
+    console.log("--- handleProfileImageUpload triggered ---");
+    if (!file) {
+        console.log("No file selected. Aborting.");
+        return;
+    }
+    console.log("File selected:", file.name, `(${file.size} bytes)`);
+    if (!currentUser || !currentUser.uid) {
+        console.error("CRITICAL: currentUser or currentUser.uid is not available!");
+        ui.showToast("Error: Not logged in.", "error");
+        return;
+    }
+    console.log(`Attempting to upload for user ID: ${currentUser.uid}`);
+    // --- DEBUGGING END ---
+
     ui.showToast("Uploading image...");
     try {
-        const photoURL = await api.uploadFile(`users/${currentUser.uid}/profileImage`, file);
+        const storagePath = `users/${currentUser.uid}/profileImage_${file.name}`; // It's safer to add filename
+        const photoURL = await api.uploadFile(storagePath, file);
         await api.updateAuthProfile({ photoURL });
         await api.updateUserDocument(currentUser.uid, { photoURL });
         ui.showToast("Profile image updated!", "success");
-    } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
+    } catch(err) {
+        // --- DEBUGGING START ---
+        console.error("Profile image upload failed in main.js catch block:", err);
+        // --- DEBUGGING END ---
+        ui.showToast(`Upload failed: ${err.message}`, "error");
+    }
 }
+
+// --- In main.js ---
 
 async function handleMasterDocumentUpload(e) {
     const files = e.target.files;
-    if (!files.length) return;
+    
+    // --- DEBUGGING START ---
+    console.log("--- handleMasterDocumentUpload triggered ---");
+    if (!files.length) {
+        console.log("No files selected. Aborting.");
+        return;
+    }
+    console.log(`${files.length} file(s) selected.`);
+     if (!currentUser || !currentUser.uid) {
+        console.error("CRITICAL: currentUser or currentUser.uid is not available!");
+        ui.showToast("Error: Not logged in.", "error");
+        return;
+    }
+    console.log(`Attempting to upload documents for user ID: ${currentUser.uid}`);
+    // --- DEBUGGING END ---
+
     ui.showToast(`Uploading ${files.length} document(s)...`);
     try {
         for (const file of files) {
+            // --- DEBUGGING START ---
+            console.log(`Uploading file: ${file.name}`);
+            // --- DEBUGGING END ---
             const path = `users/${currentUser.uid}/documents/${Date.now()}_${file.name}`;
             const downloadURL = await api.uploadFile(path, file);
             const docData = { name: file.name, url: downloadURL, path, size: file.size, type: file.type, uploadedAt: new Date() };
             await api.addDocument(`users/${currentUser.uid}/documents`, docData);
         }
         ui.showToast("Upload complete!", "success");
-    } catch(err) { ui.showToast(`Upload failed: ${err.message}`, "error"); }
+    } catch(err) {
+         // --- DEBUGGING START ---
+        console.error("Document upload failed in main.js catch block:", err);
+        // --- DEBUGGING END ---
+        ui.showToast(`Upload failed: ${err.message}`, "error");
+    }
 }
 
 async function handleSaveApplication() {
