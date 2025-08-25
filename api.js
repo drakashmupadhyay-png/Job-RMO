@@ -191,7 +191,15 @@ export async function updateUserPassword(newPassword) {
  * @param {function} [onProgress] Optional callback to track upload progress (receives a number 0-100).
  * @returns {Promise<string>} The public download URL of the uploaded file.
  */
+// --- In api.js ---
+
 export function uploadFile(path, file, onProgress) {
+    // --- DEBUGGING START ---
+    console.log(`--- API: uploadFile called ---`);
+    console.log(`Storage Path: ${path}`);
+    console.log("File Object:", file);
+    // --- DEBUGGING END ---
+
     return new Promise((resolve, reject) => {
         const storageRef = ref(storage, path);
         const uploadTask = uploadBytesResumable(storageRef, file);
@@ -199,20 +207,41 @@ export function uploadFile(path, file, onProgress) {
         uploadTask.on('state_changed',
             (snapshot) => {
                 const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                // --- DEBUGGING START ---
+                console.log(`Upload is ${progress.toFixed(2)}% done`);
+                // --- DEBUGGING END ---
                 if (onProgress) {
                     onProgress(progress);
                 }
             },
             (error) => {
-                console.error("File upload failed:", error);
+                // This console.error is already here, but it's the most important one!
+                console.error("Firebase Storage Error:", error);
+                // --- DEBUGGING START ---
+                // You can inspect the error object for more details
+                switch (error.code) {
+                    case 'storage/unauthorized':
+                        console.error("Error Detail: User does not have permission to access the object. CHECK FIREBASE RULES.");
+                        break;
+                    case 'storage/canceled':
+                        console.error("Error Detail: User canceled the upload.");
+                        break;
+                    case 'storage/unknown':
+                        console.error("Error Detail: Unknown error occurred, inspect the server response.");
+                        break;
+                }
+                // --- DEBUGGING END ---
                 reject(error);
             },
             async () => {
                 try {
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    // --- DEBUGGING START ---
+                    console.log("File uploaded successfully! Download URL:", downloadURL);
+                    // --- DEBUGGING END ---
                     resolve(downloadURL);
-                } catch (error) {
-                    console.error("Failed to get download URL:", error);
+                } catch (error) => {
+                    console.error("API Error: Failed to get download URL:", error);
                     reject(error);
                 }
             }
