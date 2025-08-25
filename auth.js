@@ -9,11 +9,11 @@
 // 1. IMPORT NECESSARY MODULES
 // Import Firebase services and functions
 import { auth } from './firebase-config.js';
-import { 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
     onAuthStateChanged,
-    updateProfile 
+    updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // Import API functions for creating user documents in Firestore
@@ -25,6 +25,7 @@ import { initializeMainApp, cleanupMainApp } from './main.js';
 // 2. ATTACH THE PRIMARY DOM EVENT LISTENER
 // This is the single entry point for all code in this file.
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('auth.js: DOMContentLoaded fired.');
 
     // --- UI SELECTORS FOR THE AUTH VIEW ---
     const authView = document.getElementById('auth-view');
@@ -46,6 +47,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const showSignupLink = document.getElementById('show-signup-link');
     const showLoginLink = document.getElementById('show-login-link');
 
+    // Verify elements are found
+    console.log('auth.js: Elements found status:');
+    console.log(`  authView: ${!!authView}`);
+    console.log(`  mainAppView: ${!!mainAppView}`);
+    console.log(`  loginForm: ${!!loginForm}`);
+    console.log(`  signupForm: ${!!signupForm}`);
+    console.log(`  loginEmailInput: ${!!loginEmailInput}`);
+    console.log(`  loginPassInput: ${!!loginPassInput}`);
+    console.log(`  loginError: ${!!loginError}`);
+    console.log(`  signupNameInput: ${!!signupNameInput}`);
+    console.log(`  signupEmailInput: ${!!signupEmailInput}`);
+    console.log(`  signupPassInput: ${!!signupPassInput}`);
+    console.log(`  signupCPassInput: ${!!signupCPassInput}`);
+    console.log(`  signupError: ${!!signupError}`);
+    console.log(`  showSignupLink: ${!!showSignupLink}`);
+    console.log(`  showLoginLink: ${!!showLoginLink}`);
+
     // --- HELPER FUNCTION TO DISPLAY ERRORS ---
     function showAuthError(element, message) {
         element.textContent = message;
@@ -60,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function handleLogin(e) {
         e.preventDefault();
+        console.log('auth.js: handleLogin fired.');
         loginError.classList.add('hidden');
         
         try {
@@ -83,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function handleSignup(e) {
         e.preventDefault();
+        console.log('auth.js: handleSignup fired.');
         signupError.classList.add('hidden');
         
         const fullName = signupNameInput.value.trim();
@@ -147,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {('login'|'signup')} viewToShow The view to display.
      */
     function switchAuthView(viewToShow) {
+        console.log(`auth.js: switchAuthView to ${viewToShow}`);
         // Hide all status messages
         loginError.classList.add('hidden');
         signupError.classList.add('hidden');
@@ -164,34 +185,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- ATTACH EVENT LISTENERS FOR THE AUTH VIEW ---
-    loginForm.addEventListener('submit', handleLogin);
-    signupForm.addEventListener('submit', handleSignup);
-    showSignupLink.addEventListener('click', (e) => { 
-        e.preventDefault(); 
-        switchAuthView('signup'); 
-    });
-    showLoginLink.addEventListener('click', (e) => { 
-        e.preventDefault(); 
-        switchAuthView('login'); 
-    });
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+        console.log('auth.js: Login form listener attached.');
+    } else {
+        console.error('auth.js: loginForm not found!');
+    }
+    if (signupForm) {
+        signupForm.addEventListener('submit', handleSignup);
+        console.log('auth.js: Signup form listener attached.');
+    } else {
+        console.error('auth.js: signupForm not found!');
+    }
+    if (showSignupLink) {
+        showSignupLink.addEventListener('click', (e) => { 
+            e.preventDefault(); 
+            console.log('auth.js: showSignupLink clicked.');
+            switchAuthView('signup'); 
+        });
+        console.log('auth.js: Show signup link listener attached.');
+    } else {
+        console.error('auth.js: showSignupLink not found!');
+    }
+    if (showLoginLink) {
+        showLoginLink.addEventListener('click', (e) => { 
+            e.preventDefault(); 
+            console.log('auth.js: showLoginLink clicked.');
+            switchAuthView('login'); 
+        });
+        console.log('auth.js: Show login link listener attached.');
+    } else {
+        console.error('auth.js: showLoginLink not found!');
+    }
 
 
     // --- 3. CENTRAL AUTHENTICATION STATE OBSERVER ---
     // This is the "gatekeeper" of the entire application.
     onAuthStateChanged(auth, user => {
         if (user) {
+            console.log('auth.js: User is signed in:', user.uid);
             // User is signed in.
             // Hide the auth view and show the main application.
-            authView.classList.add('hidden');
-            mainAppView.classList.remove('hidden');
+            if (authView) authView.classList.add('hidden');
+            if (mainAppView) mainAppView.classList.remove('hidden');
             
             // Hand control over to the main application module.
             initializeMainApp(user);
         } else {
+            console.log('auth.js: User is signed out.');
             // User is signed out.
             // Hide the main application and show the auth view.
-            mainAppView.classList.add('hidden');
-            authView.classList.remove('hidden');
+            if (mainAppView) mainAppView.classList.add('hidden');
+            if (authView) authView.classList.remove('hidden');
             
             // Ensure the login form is the default view.
             switchAuthView('login');
