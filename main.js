@@ -101,23 +101,11 @@ function navigateTo(hash) {
 // --- EVENT LISTENER MANAGEMENT ---
 
 function attachGlobalEventListeners() {
-    window.addEventListener('hashchange', () => navigateTo(window.location.hash));
-    window.addEventListener('click', handleGlobalClick);
-    document.getElementById('app-sidebar').addEventListener('click', handleSidebarClicks);
-    document.getElementById('global-header').addEventListener('click', handleHeaderClicks);
-    document.getElementById('fab').addEventListener('click', handleFabClick);
-
-    // --- FIX APPLIED HERE ---
-    // Attach file input listeners globally since the inputs exist on page load.
-    const profileUploadInput = document.getElementById('profile-image-upload');
-    if (profileUploadInput) {
-        profileUploadInput.addEventListener('change', handleProfileImageUpload);
-    }
-
-    const masterDocInput = document.getElementById('master-doc-file-input');
-    if (masterDocInput) {
-        masterDocInput.addEventListener('change', (e) => handleMasterDocumentUpload(e));
-    }
+    window.addEventListener("hashchange", () => navigateTo(window.location.hash));
+    window.addEventListener("click", handleGlobalClick);
+    document.getElementById("app-sidebar").addEventListener("click", handleSidebarClicks);
+    document.getElementById("global-header").addEventListener("click", handleHeaderClicks);
+    document.getElementById("fab").addEventListener("click", handleFabClick);
 }
 
 function setupDashboardListeners() {
@@ -140,18 +128,24 @@ function setupDashboardListeners() {
 }
 
 function setupSettingsListeners() {
-    const settingsEl = document.getElementById('settings');
-    settingsEl.addEventListener('click', handleSettingsClicks);
+    const settingsEl = document.getElementById("settings");
+    settingsEl.addEventListener("click", handleSettingsClicks);
     
-    const timezoneSelect = document.getElementById('timezone-selector');
-    const handleTimezoneChange = (e) => api.updateUserDocument(currentUser.uid, { 'preferences.timezone': e.target.value });
-    timezoneSelect.addEventListener('change', handleTimezoneChange);
+    const timezoneSelect = document.getElementById("timezone-selector");
+    const handleTimezoneChange = (e) => api.updateUserDocument(currentUser.uid, { "preferences.timezone": e.target.value });
+    timezoneSelect.addEventListener("change", handleTimezoneChange);
     
-    // The profile image upload listener is now global, so it's removed from here.
+    const profileUpload = document.getElementById("profile-image-upload");
+    if (profileUpload) {
+        profileUpload.addEventListener("change", handleProfileImageUpload);
+    }
 
     return () => {
-        settingsEl.removeEventListener('click', handleSettingsClicks);
-        timezoneSelect.removeEventListener('change', handleTimezoneChange);
+        settingsEl.removeEventListener("click", handleSettingsClicks);
+        timezoneSelect.removeEventListener("change", handleTimezoneChange);
+        if (profileUpload) {
+            profileUpload.removeEventListener("change", handleProfileImageUpload);
+        }
     };
 }
 
@@ -176,17 +170,23 @@ function setupExperienceBookListeners() {
 }
 
 function setupDocumentsListeners() {
-    const docPage = document.getElementById('documents');
-    docPage.addEventListener('click', handleDocumentsClicks);
-    const dropzone = document.getElementById('upload-dropzone');
-    const docInput = document.getElementById('master-doc-file-input');
+    const docPage = document.getElementById("documents");
+    docPage.addEventListener("click", handleDocumentsClicks);
+    const dropzone = document.getElementById("upload-dropzone");
+    const docInput = document.getElementById("master-doc-file-input");
     const dropzoneClickHandler = () => docInput.click();
+    const docInputChangeHandler = (e) => handleMasterDocumentUpload(e);
     
-    dropzone.addEventListener('click', dropzoneClickHandler);
-    // The document input change listener is now global, so it's removed from here.
+    dropzone.addEventListener("click", dropzoneClickHandler);
+    if (docInput) {
+        docInput.addEventListener("change", docInputChangeHandler);
+    }
 
     return () => {
-        dropzone.removeEventListener('click', dropzoneClickHandler);
+        dropzone.removeEventListener("click", dropzoneClickHandler);
+        if (docInput) {
+            docInput.removeEventListener("change", docInputChangeHandler);
+        }
     };
 }
 
