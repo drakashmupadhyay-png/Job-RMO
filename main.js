@@ -1,7 +1,7 @@
 "use strict";
 
 // ---
-// RMO Job-Flow - main.js (v2.5 - Bug Fixes & UI Polish)
+// RMO Job-Flow - main.js (v2.7 - Page Switching Fix)
 // Description: The central "brain" of the application. Manages state,
 // orchestrates modules, and handles all business logic and event listeners.
 // ---
@@ -163,7 +163,6 @@ function setupDashboardListeners() {
     const dashboardEl = document.getElementById('dashboard');
     dashboardEl.addEventListener('click', handleDashboardClicks);
 
-    // Filter/Sort Listeners
     const filterPanel = document.getElementById('filter-panel');
     filterPanel.addEventListener('change', handleDashboardFilterChange);
     
@@ -182,17 +181,20 @@ function setupSettingsListeners() {
     const settingsEl = document.getElementById('settings');
     settingsEl.addEventListener('click', handleSettingsClicks);
     
-    // Add specific listener for timezone to fix bug and provide instant feedback
     const timezoneSelect = document.getElementById('timezone-selector');
     const handleTimezoneChange = (e) => api.updateUserDocument(currentUser.uid, { 'preferences.timezone': e.target.value });
-    timezoneSelect.addEventListener('change', handleTimezoneChange);
+    if (timezoneSelect) {
+        timezoneSelect.addEventListener('change', handleTimezoneChange);
+    }
     
     const profileUpload = document.getElementById('profile-image-upload');
     profileUpload.addEventListener('change', handleProfileImageUpload);
 
     return () => {
         settingsEl.removeEventListener('click', handleSettingsClicks);
-        timezoneSelect.removeEventListener('change', handleTimezoneChange);
+        if (timezoneSelect) {
+            timezoneSelect.removeEventListener('change', handleTimezoneChange);
+        }
         profileUpload.removeEventListener('change', handleProfileImageUpload);
     };
 }
@@ -269,7 +271,8 @@ function handleHeaderClicks(e) {
 }
 
 function handleFabClick() {
-    switch (appState.ui.currentPage) {
+    const page = appState.ui.currentPage.split('/')[0];
+    switch (page) {
         case 'dashboard':
             window.location.hash = '#applicationDetail/new';
             break;
@@ -332,7 +335,6 @@ function handleSettingsClicks(e) {
         const theme = themeButton.dataset.theme;
         api.updateUserDocument(currentUser.uid, { 'preferences.theme': theme });
     }
-    // Note: Timezone logic removed from here and placed in setupSettingsListeners for correctness
     if(e.target.closest('#save-profile-btn')) handleSaveProfile();
     if(e.target.closest('#update-password-btn')) handleUpdatePassword();
     if(e.target.closest('#interactive-avatar')) document.getElementById('profile-image-upload').click();
@@ -377,6 +379,18 @@ function handleDocumentsClicks(e) {
             ui.renderDocumentsPage(appState.documents, [], newView);
         }
     }
+
+    // New Folder Button
+    if (e.target.closest('#add-folder-btn')) {
+        const folderName = prompt("Enter the name for the new folder:");
+        if (folderName && folderName.trim()) {
+            console.log("Creating new folder:", folderName.trim());
+            ui.showToast(`Creating folder "${folderName.trim()}"...`);
+            // This is a placeholder for now. In a future update, we would call an API function.
+            ui.showToast("Folder creation is not yet implemented.", "error");
+        }
+    }
+
     // Inspector
     const docItem = e.target.closest('.interactive-row, .doc-grid-item');
     if (docItem) {
